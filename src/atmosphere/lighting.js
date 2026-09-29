@@ -53,12 +53,26 @@ export function createLighting(scene) {
   }) {
     const blend = 1 - Math.pow(0.025, delta);
     const radius = 260;
-    const cosElevation = Math.cos(sunState.elevation);
+
+    const sunAltitude =
+      celestial?.sun?.altitude ??
+      sunState.elevation;
+
+    const sunAzimuth =
+      celestial?.sun?.azimuth ??
+      sunState.azimuth;
+
+    const cosElevation =
+      Math.cos(sunAltitude);
 
     const targetPosition = new THREE.Vector3(
-      Math.sin(sunState.azimuth) * cosElevation * radius,
-      Math.max(-35, Math.sin(sunState.elevation) * radius),
-      Math.cos(sunState.azimuth) * cosElevation * radius
+      -Math.sin(sunAzimuth) *
+        cosElevation *
+        radius,
+      Math.sin(sunAltitude) * radius,
+      Math.cos(sunAzimuth) *
+        cosElevation *
+        radius
     );
 
     sun.position.lerp(targetPosition, blend);
@@ -69,16 +83,24 @@ export function createLighting(scene) {
     const nightFactor =
       sunState.nightFactor ?? (night ? 1 : 0);
 
+    const sunAboveHorizon =
+      THREE.MathUtils.smoothstep(
+        sunAltitude,
+        -0.055,
+        0.08
+      );
+
     const targetSunIntensity =
-      nightFactor > 0.92
-        ? 0
-        : golden
+      sunAboveHorizon *
+      (
+        golden
           ? THREE.MathUtils.lerp(
-              2.25,
-              0.28,
+              2.0,
+              0.18,
               nightFactor
             )
-          : 4.4 * (1 - cloudFactor * 0.58);
+          : 4.4 * (1 - cloudFactor * 0.58)
+      );
 
     const targetHemiIntensity =
       THREE.MathUtils.lerp(
