@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { createTerrain } from './world/terrain.js';
+import { createCoast } from './world/coast.js';
 import {
   createFallbackCity,
   createOsmCity
@@ -71,6 +72,13 @@ const environment = createEnvironmentManager({
 });
 const terrain = createTerrain();
 scene.add(terrain.group);
+
+const coast = createCoast({
+  heightAt: terrain.heightAt,
+  coastX: terrain.coastX,
+  seaLevel: terrain.seaLevel
+});
+scene.add(coast.group);
 
 let city = createFallbackCity(terrain.heightAt);
 scene.add(city);
@@ -165,10 +173,24 @@ function updateCamera(delta) {
   const height =
     cameraState.distance * Math.sin(cameraState.pitch);
 
+  const cameraX =
+    cameraState.target.x +
+    Math.sin(cameraState.yaw) * horizontal;
+
+  const cameraZ =
+    cameraState.target.z +
+    Math.cos(cameraState.yaw) * horizontal;
+
+  const terrainY =
+    terrain.heightAt(cameraX, cameraZ);
+
   camera.position.set(
-    cameraState.target.x + Math.sin(cameraState.yaw) * horizontal,
-    height,
-    cameraState.target.z + Math.cos(cameraState.yaw) * horizontal
+    cameraX,
+    Math.max(
+      cameraState.target.y + height,
+      terrainY + 24
+    ),
+    cameraZ
   );
 
   camera.lookAt(cameraState.target);
