@@ -113,6 +113,30 @@ export async function createOsmCity(heightAt, onProgress = () => {}) {
 
   group.userData.objectCount = objectCount;
 
+  group.userData.updateNight = (factor) => {
+    const night = THREE.MathUtils.clamp(factor, 0, 1);
+
+    const buildingMaterials =
+      buildings.userData.nightMaterials || [];
+
+    for (const material of buildingMaterials) {
+      material.emissiveIntensity =
+        material.userData.nightWeight * night;
+    }
+
+    const streetMaterial =
+      roads.userData.nightLampMaterial;
+
+    if (streetMaterial) {
+      streetMaterial.opacity =
+        THREE.MathUtils.clamp(
+          (night - 0.14) / 0.72,
+          0,
+          0.95
+        );
+    }
+  };
+
   onProgress({
     stage: 'ready',
     progress: 1,
