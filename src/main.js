@@ -1,0 +1,120 @@
+import * as THREE from 'three';
+import { CONFIG } from './config.js';
+import { createTerrain } from './world/terrain.js';
+import { createLighting } from './atmosphere/lighting.js';
+import { createSky } from './atmosphere/sky.js';
+import { createClouds } from './atmosphere/clouds.js';
+
+const canvas = document.querySelector('#game');
+
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: true,
+  powerPreference: 'high-performance'
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(
+  0x9c8e82,
+  CONFIG.atmosphere.fogNear,
+  CONFIG.atmosphere.fogFar
+);
+
+const camera = new THREE.PerspectiveCamera(44, 1, 1, 1100);
+
+const cameraState = {
+  target: new THREE.Vector3(0, 0, 0),
+  yaw: -0.65,
+  distance: CONFIG.camera.startDistance
+};
+
+const keys = new Set();
+
+createSky(scene);
+createLighting(scene);
+const clouds = createClouds(scene);
+createTerrain().group && scene.add(createTerrain().group);
+
+function updateCamera(delta) {
+  const pan = new THREE.Vector3();
+
+  if (keys.has('KeyW') || keys.has('ArrowUp')) pan.z -= 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown')) pan.z += 1;
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) pan.x -= 1;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) pan.x += 1;
+
+  if (pan.lengthSq()) {
+    pan.normalize();
+    const sin = Math.sin(cameraState.yaw);
+    const cos = Math.cos(cameraState.yaw);
+    const worldX = pan.x * cos - pan.z * sin;
+    const worldZ = pan.x * sin + pan.z * cos;
+
+    cameraState.target.x += worldX * CONFIG.camera.panSpeed * delta;
+    cameraState.target.z += worldZ * CONFIG.camera.panSpeed * delta;
+  }
+
+  if (keys.has('KeyQ')) cameraState.yaw += CONFIG.camera.rotationSpeed * delta;
+  if (keys.has('KeyE')) cameraState.yaw -= CONFIG.camera.rotationSpeed * delta;
+
+  const horizontal = cameraState.distance * Math.cos(CONFIG.camera.pitch);
+  const height = cameraState.distance * Math.sin(CONFIG.camera.pitch);
+
+  camera.position.set(
+    cameraState.target.x + Math.sin(cameraState.yaw) * horizontal,
+    height,
+    cameraState.target.z + Math.cos(cameraState.yaw) * horizontal
+  );
+
+  camera.lookAt(cameraState.target);
+}
+
+function resize() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  renderer.setSize(width, height, false);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+}
+
+window.addEventListener('resize', resize);
+
+window.addEventListener('keydown', (event) => {
+  keys.add(event.code);
+});
+
+window.addEventListener('keyup', (event) => {
+  keys.delete(event.code);
+});
+
+window.addEventListener('wheel', (event) => {
+  cameraState.distance = THREE.MathUtils.clamp(
+    cameraState.distance + event.deltaY * 0.08,
+    CONFIG.camera.minDistance,
+    CONFIG.camera.maxDistance
+  );
+}, { passive: true });
+
+resize();
+
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const delta = Math.min(clock.getDelta(), 0.05);
+
+  updateCamera(delta);
+  clouds.update(delta);
+
+  renderer.render(scene, camera);
+}
+
+animate();
