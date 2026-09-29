@@ -333,54 +333,125 @@ function createProceduralOutskirts(heightAt) {
   const group = new THREE.Group();
   group.name = 'procedural-outskirts';
 
-  const districts = [
-    { x: -410, z: 40, cols: 17, rows: 11, sx: 19, sz: 18 },
-    { x: -250, z: -330, cols: 14, rows: 9, sx: 20, sz: 19 },
-    { x: -30, z: -390, cols: 13, rows: 8, sx: 21, sz: 20 },
-    { x: 260, z: -300, cols: 9, rows: 7, sx: 20, sz: 21 },
-    { x: -430, z: 300, cols: 12, rows: 8, sx: 23, sz: 20 }
+  const items = [];
+  const lightPositions = [];
+  const roadSegments = [];
+
+  const zones = [
+    { cx: -420, cz: 40, rx: 230, rz: 300, density: 0.72, towers: 0.2 },
+    { cx: -250, cz: -330, rx: 260, rz: 230, density: 0.78, towers: 0.28 },
+    { cx: -30, cz: -400, rx: 260, rz: 210, density: 0.74, towers: 0.22 },
+    { cx: 235, cz: -310, rx: 190, rz: 190, density: 0.6, towers: 0.32 },
+    { cx: -430, cz: 310, rx: 230, rz: 210, density: 0.62, towers: 0.16 },
+    { cx: -150, cz: 250, rx: 260, rz: 190, density: 0.7, towers: 0.2 },
+    { cx: 80, cz: 180, rx: 210, rz: 180, density: 0.66, towers: 0.2 }
   ];
 
-  const items = [];
+  const grid = 18;
 
-  for (const district of districts) {
-    for (let ix = 0; ix < district.cols; ix += 1) {
-      for (let iz = 0; iz < district.rows; iz += 1) {
-        const seed = seeded(
-          district.x * 11 +
-          district.z * 7 +
-          ix * 31 +
-          iz * 17
+  for (let x = -760; x <= 520; x += grid) {
+    for (let z = -620; z <= 580; z += grid) {
+      const r = Math.hypot(x, z);
+
+      if (r < 235) continue;
+
+      let influence = 0;
+      let towerChance = 0;
+
+      for (const zone of zones) {
+        const dx = (x - zone.cx) / zone.rx;
+        const dz = (z - zone.cz) / zone.rz;
+        const d = dx * dx + dz * dz;
+
+        if (d < 1) {
+          const local = (1 - d) * zone.density;
+          influence = Math.max(influence, local);
+          towerChance = Math.max(
+            towerChance,
+            (1 - d) * zone.towers
+          );
+        }
+      }
+
+      const corridorA =
+        Math.abs(z - (0.58 * x - 75)) < 90
+          ? 0.28
+          : 0;
+
+      const corridorB =
+        Math.abs(z + (0.28 * x + 240)) < 100
+          ? 0.22
+          : 0;
+
+      influence = Math.max(
+        influence,
+        corridorA,
+        corridorB
+      );
+
+      if (influence <= 0) continue;
+
+      const seed = seeded(
+        x * 17.17 +
+        z * 31.31
+      );
+
+      if (seed > influence + 0.18) continue;
+
+      const jitterX =
+        (seeded(seed * 2001) - 0.5) * 6;
+
+      const jitterZ =
+        (seeded(seed * 3001) - 0.5) * 6;
+
+      const px = x + jitterX;
+      const pz = z + jitterZ;
+
+      const towerSeed = seeded(seed * 5001);
+      const highRise =
+        towerSeed < towerChance;
+
+      const h = highRise
+        ? 24 + seeded(seed * 7001) * 34
+        : 5.5 + seeded(seed * 8001) * 13;
+
+      const w =
+        highRise
+          ? 9 + seeded(seed * 9001) * 9
+          : 6 + seeded(seed * 10001) * 10;
+
+      const d =
+        highRise
+          ? 10 + seeded(seed * 11001) * 10
+          : 7 + seeded(seed * 12001) * 12;
+
+      items.push({
+        x: px,
+        z: pz,
+        w,
+        d,
+        h,
+        seed
+      });
+
+      if (
+        seeded(seed * 13001) > 0.76
+      ) {
+        lightPositions.push(
+          px,
+          heightAt(px, pz) + 2.4,
+          pz
         );
-
-        if (seed < 0.16) continue;
-
-        const x =
-          district.x +
-          (ix - district.cols * 0.5) * district.sx;
-
-        const z =
-          district.z +
-          (iz - district.rows * 0.5) * district.sz;
-
-        items.push({
-          x,
-          z,
-          w: 7 + seed * 10,
-          d: 7 + seeded(seed * 500) * 12,
-          h:
-            seed > 0.76
-              ? 24 + seed * 18
-              : 7 + seed * 12
-        });
       }
     }
   }
 
   const geometry = new THREE.BoxGeometry(1, 1, 1);
+
   const material = new THREE.MeshStandardMaterial({
     color: 0x737b7e,
-    roughness: 0.98
+    roughness: 0.98,
+    vertexColors: true
   });
 
   const mesh = new THREE.InstancedMesh(
@@ -393,12 +464,21 @@ function createProceduralOutskirts(heightAt) {
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
   const scale = new THREE.Vector3();
+  const color = new THREE.Color();
 
   items.forEach((item, index) => {
     position.set(
       item.x,
       heightAt(item.x, item.z) + item.h * 0.5,
       item.z
+    );
+
+    const angle =
+      (seeded(item.seed * 14001) - 0.5) * 0.22;
+
+    quaternion.setFromAxisAngle(
+      new THREE.Vector3(0, 1, 0),
+      angle
     );
 
     scale.set(
@@ -414,119 +494,142 @@ function createProceduralOutskirts(heightAt) {
     );
 
     mesh.setMatrixAt(index, matrix);
+
+    const shade = seeded(item.seed * 15001);
+
+    color.set(
+      shade > 0.7
+        ? 0x7c8588
+        : shade > 0.35
+          ? 0x687176
+          : 0x596469
+    );
+
+    mesh.setColorAt(index, color);
   });
 
+  mesh.castShadow = false;
+  mesh.receiveShadow = true;
   group.add(mesh);
 
-  const roadMaterial = new THREE.LineBasicMaterial({
-    color: 0x51595d,
-    transparent: true,
-    opacity: 0.82
-  });
-
   function addRoad(points) {
-    const positions = [];
-
     for (let i = 0; i < points.length - 1; i += 1) {
       const a = points[i];
       const b = points[i + 1];
 
-      positions.push(
+      roadSegments.push(
         a.x,
-        heightAt(a.x, a.z) + 0.14,
+        heightAt(a.x, a.z) + 0.16,
         a.z,
         b.x,
-        heightAt(b.x, b.z) + 0.14,
+        heightAt(b.x, b.z) + 0.16,
         b.z
       );
     }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute(
-        positions,
-        3
-      )
-    );
-
-    group.add(
-      new THREE.LineSegments(
-        geometry,
-        roadMaterial
-      )
-    );
   }
 
-  const districtCenters = districts.map(
-    (district) => ({
-      x: district.x,
-      z: district.z
-    })
+  addRoad([
+    { x: -760, z: 450 },
+    { x: -520, z: 315 },
+    { x: -300, z: 145 },
+    { x: -85, z: 20 },
+    { x: 145, z: -135 },
+    { x: 410, z: -325 }
+  ]);
+
+  addRoad([
+    { x: -700, z: -470 },
+    { x: -470, z: -390 },
+    { x: -250, z: -330 },
+    { x: -35, z: -395 },
+    { x: 230, z: -310 },
+    { x: 500, z: -170 }
+  ]);
+
+  addRoad([
+    { x: -560, z: 540 },
+    { x: -410, z: 320 },
+    { x: -250, z: 120 },
+    { x: -160, z: -100 },
+    { x: -150, z: -330 }
+  ]);
+
+  for (let z = -520; z <= 420; z += 72) {
+    addRoad([
+      { x: -650, z },
+      { x: 350, z: z + 28 }
+    ]);
+  }
+
+  for (let x = -600; x <= 300; x += 86) {
+    addRoad([
+      { x, z: -540 },
+      { x: x + 12, z: 470 }
+    ]);
+  }
+
+  const roadGeometry = new THREE.BufferGeometry();
+  roadGeometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(
+      roadSegments,
+      3
+    )
   );
 
-  addRoad([
-    { x: -620, z: 360 },
-    { x: -430, z: 300 },
-    { x: -260, z: 120 },
-    { x: -80, z: 20 },
-    { x: 120, z: -120 },
-    { x: 320, z: -300 }
-  ]);
+  const roadMaterial = new THREE.LineBasicMaterial({
+    color: 0x596166,
+    transparent: true,
+    opacity: 0.72
+  });
 
-  addRoad([
-    { x: -520, z: -420 },
-    { x: -250, z: -330 },
-    { x: -30, z: -390 },
-    { x: 260, z: -300 },
-    { x: 500, z: -180 }
-  ]);
+  group.add(
+    new THREE.LineSegments(
+      roadGeometry,
+      roadMaterial
+    )
+  );
 
-  for (const district of districts) {
-    const halfW =
-      district.cols * district.sx * 0.5;
+  const lightGeometry = new THREE.BufferGeometry();
+  lightGeometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(
+      lightPositions,
+      3
+    )
+  );
 
-    const halfD =
-      district.rows * district.sz * 0.5;
+  const lightMaterial = new THREE.PointsMaterial({
+    color: 0xffc977,
+    size: 1.15,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
 
-    for (let row = -2; row <= 2; row += 1) {
-      const z =
-        district.z +
-        row * halfD * 0.34;
+  const lights = new THREE.Points(
+    lightGeometry,
+    lightMaterial
+  );
 
-      addRoad([
-        {
-          x: district.x - halfW * 0.55,
-          z
-        },
-        {
-          x: district.x + halfW * 0.55,
-          z
-        }
-      ]);
-    }
+  lights.renderOrder = 19;
+  group.add(lights);
 
-    for (let col = -2; col <= 2; col += 1) {
-      const x =
-        district.x +
-        col * halfW * 0.34;
+  group.userData.updateNight = (factor) => {
+    lightMaterial.opacity =
+      THREE.MathUtils.clamp(
+        (factor - 0.18) / 0.72,
+        0,
+        0.78
+      );
+  };
 
-      addRoad([
-        {
-          x,
-          z: district.z - halfD * 0.55
-        },
-        {
-          x,
-          z: district.z + halfD * 0.55
-        }
-      ]);
-    }
-  }
+  group.userData.objectCount = items.length;
 
   return group;
 }
-
 export async function createMetropolitanLayer(heightAt) {
   const group = new THREE.Group();
   group.name = 'odesa-metropolitan';
@@ -538,9 +641,12 @@ export async function createMetropolitanLayer(heightAt) {
     group.add(fallback);
 
     group.userData.source = 'procedural';
-    group.userData.objectCount = fallback.children.length;
+    group.userData.objectCount =
+      fallback.userData.objectCount || 0;
 
-    group.userData.updateNight = () => {};
+    group.userData.updateNight = (factor) => {
+      fallback.userData.updateNight?.(factor);
+    };
     return group;
   }
 
