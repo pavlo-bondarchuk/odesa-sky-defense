@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { createTerrain } from './world/terrain.js';
 import { createCoast } from './world/coast.js';
+import { createMetropolitanLayer } from './world/metropolitan.js';
 import {
   createFallbackCity,
   createOsmCity
@@ -85,6 +86,8 @@ scene.add(coast.group);
 let city = createFallbackCity(terrain.heightAt);
 scene.add(city);
 
+let metropolitan = null;
+
 const cityStatus = document.querySelector('#cityStatus');
 const cityLoader = document.querySelector('#cityLoader');
 const cityLoaderLabel = document.querySelector('#cityLoaderLabel');
@@ -122,6 +125,24 @@ createOsmCity(terrain.heightAt, updateCityLoader)
     setTimeout(() => {
       cityLoader.hidden = true;
     }, 900);
+
+    return createMetropolitanLayer(
+      terrain.heightAt
+    );
+  })
+  .then((metroLayer) => {
+    if (!metroLayer) return;
+
+    metropolitan = metroLayer;
+    scene.add(metropolitan);
+
+    const source =
+      metropolitan.userData.source === 'osm-metro'
+        ? 'METRO OSM'
+        : 'METRO FALLBACK';
+
+    cityStatus.textContent +=
+      ` · ${source}`;
   })
   .catch((error) => {
     console.warn('OSM city load failed', error);
@@ -392,6 +413,10 @@ function animate() {
     environmentState.sun?.nightFactor ?? 0;
 
   city.userData.updateNight?.(
+    nightFactor
+  );
+
+  metropolitan?.userData.updateNight?.(
     nightFactor
   );
 
