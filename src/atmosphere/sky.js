@@ -132,6 +132,44 @@ export function createSky(scene) {
   moon.visible = false;
   scene.add(moon);
 
+  const haloCanvas = document.createElement('canvas');
+  haloCanvas.width = 128;
+  haloCanvas.height = 128;
+
+  const haloContext = haloCanvas.getContext('2d');
+  const haloGradient = haloContext.createRadialGradient(
+    64,
+    64,
+    3,
+    64,
+    64,
+    62
+  );
+
+  haloGradient.addColorStop(0, 'rgba(215,230,255,0.58)');
+  haloGradient.addColorStop(0.22, 'rgba(185,210,245,0.24)');
+  haloGradient.addColorStop(1, 'rgba(160,195,235,0)');
+
+  haloContext.fillStyle = haloGradient;
+  haloContext.fillRect(0, 0, 128, 128);
+
+  const haloTexture = new THREE.CanvasTexture(haloCanvas);
+
+  const moonHalo = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: haloTexture,
+      color: 0xbfd7ff,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    })
+  );
+
+  moonHalo.scale.set(34, 34, 1);
+  moonHalo.visible = false;
+  scene.add(moonHalo);
+
   const starsGeometry = new THREE.BufferGeometry();
   const stars = [];
 
@@ -232,6 +270,28 @@ export function createSky(scene) {
         moon.position.y > -8 &&
         (sun.night || sun.daylight < 0.45);
 
+      moonHalo.position.copy(moon.position);
+      moonHalo.visible = moon.visible;
+
+      const moonVisibility =
+        THREE.MathUtils.clamp(
+          celestial.moon.fraction *
+          (0.35 + (sun.nightFactor ?? 0) * 0.65),
+          0,
+          1
+        );
+
+      moonHalo.material.opacity =
+        THREE.MathUtils.lerp(
+          moonHalo.material.opacity,
+          moonVisibility * 0.52,
+          blend
+        );
+
+      moonHalo.scale.setScalar(
+        26 + moonVisibility * 18
+      );
+
       moon.material.uniforms.phase.value =
         celestial.moon.phase;
 
@@ -255,6 +315,7 @@ export function createSky(scene) {
     sky,
     sunDisc,
     moon,
+    moonHalo,
     starField,
     update
   };
