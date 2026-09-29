@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Black Sea Defense</title>
+  <meta name="description" content="Stylized real-time city defense game prototype.">
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+  <main id="app">
+    <header class="hud">
+      <div class="brand">
+        <strong>BLACK SEA DEFENSE</strong>
+        <span>HISTORIC DISTRICT</span>
+      </div>
+
+      <div class="status">
+        <div><span>WAVE</span><strong>—</strong></div>
+        <div><span>THREATS</span><strong>0</strong></div>
+        <div><span>INTERCEPTED</span><strong>0</strong></div>
+      </div>
+    </header>
+
+    <div class="hint">WASD / ARROWS · CAMERA &nbsp;&nbsp; Q / E · ROTATE &nbsp;&nbsp; WHEEL · ZOOM</div>
+    <canvas id="game"></canvas>
+  </main>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
+    }
+  }
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
