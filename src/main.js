@@ -41,13 +41,15 @@ const cameraState = {
   target: new THREE.Vector3(0, 0, 0),
   yaw: -0.65,
   pitch: CONFIG.camera.pitch,
-  distance: CONFIG.camera.startDistance
+  distance: CONFIG.camera.startDistance,
+  moveVelocity: new THREE.Vector3()
 };
 
 const keys = new Set();
 
 const pointerState = {
   active: false,
+  pointerId: null,
   x: 0,
   y: 0
 };
@@ -142,53 +144,105 @@ cameraState.target.y = terrain.heightAt(
 );
 
 function updateCamera(delta) {
-  const pan = new THREE.Vector3();
+  const inputForward =
+    (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) -
+    (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
 
-  if (keys.has('KeyW') || keys.has('ArrowUp')) pan.z -= 1;
-  if (keys.has('KeyS') || keys.has('ArrowDown')) pan.z += 1;
-  if (keys.has('KeyA') || keys.has('ArrowLeft')) pan.x -= 1;
-  if (keys.has('KeyD') || keys.has('ArrowRight')) pan.x += 1;
+  const inputStrafe =
+    (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) -
+    (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
 
-  if (pan.lengthSq()) {
-    pan.normalize();
-    const sin = Math.sin(cameraState.yaw);
-    const cos = Math.cos(cameraState.yaw);
-    const worldX = pan.x * cos - pan.z * sin;
-    const worldZ = pan.x * sin + pan.z * cos;
+  const moveInput = new THREE.Vector3(
+    inputStrafe,
+    0,
+    inputForward
+  );
 
-    cameraState.target.x += worldX * CONFIG.camera.panSpeed * delta;
-    cameraState.target.z += worldZ * CONFIG.camera.panSpeed * delta;
-    cameraState.target.y = terrain.heightAt(
-      cameraState.target.x,
-      cameraState.target.z
-    );
+  if (moveInput.lengthSq() > 1) {
+    moveInput.normalize();
   }
 
-  if (keys.has('KeyQ')) cameraState.yaw += CONFIG.camera.rotationSpeed * delta;
-  if (keys.has('KeyE')) cameraState.yaw -= CONFIG.camera.rotationSpeed * delta;
+  const forward = new THREE.Vector3(
+    -Math.sin(cameraState.yaw),
+    0,
+    -Math.cos(cameraState.yaw)
+  );
+
+  const right = new THREE.Vector3(
+    Math.cos(cameraState.yaw),
+    0,
+    -Math.sin(cameraState.yaw)
+  );
+
+  const desiredDirection = new THREE.Vector3()
+    .addScaledVector(forward, moveInput.z)
+    .addScaledVector(right, moveInput.x);
+
+  const speedMultiplier =
+    keys.has('ShiftLeft') || keys.has('ShiftRight')
+      ? CONFIG.camera.sprintMultiplier
+      : 1;
+
+  const desiredVelocity =
+    desiredDirection.lengthSq() > 0
+      ? desiredDirection
+          .normalize()
+          .multiplyScalar(
+            CONFIG.camera.moveSpeed *
+            speedMultiplier
+          )
+      : new THREE.Vector3();
+
+  const moveBlend =
+    1 - Math.pow(
+      CONFIG.camera.moveDamping,
+      delta
+    );
+
+  cameraState.moveVelocity.lerp(
+    desiredVelocity,
+    moveBlend
+  );
+
+  cameraState.target.addScaledVector(
+    cameraState.moveVelocity,
+    delta
+  );
+
+  cameraState.target.y = terrain.heightAt(
+    cameraState.target.x,
+    cameraState.target.z
+  );
 
   const horizontal =
-    cameraState.distance * Math.cos(cameraState.pitch);
+    cameraState.distance *
+    Math.cos(cameraState.pitch);
 
   const height =
-    cameraState.distance * Math.sin(cameraState.pitch);
+    cameraState.distance *
+    Math.sin(cameraState.pitch);
 
   const cameraX =
     cameraState.target.x +
-    Math.sin(cameraState.yaw) * horizontal;
+    Math.sin(cameraState.yaw) *
+    horizontal;
 
   const cameraZ =
     cameraState.target.z +
-    Math.cos(cameraState.yaw) * horizontal;
+    Math.cos(cameraState.yaw) *
+    horizontal;
 
   const terrainY =
-    terrain.heightAt(cameraX, cameraZ);
+    terrain.heightAt(
+      cameraX,
+      cameraZ
+    );
 
   camera.position.set(
     cameraX,
     Math.max(
       cameraState.target.y + height,
-      terrainY + 24
+      terrainY + CONFIG.camera.minTerrainClearance
     ),
     cameraZ
   );
@@ -208,6 +262,23 @@ function resize() {
 window.addEventListener('resize', resize);
 
 window.addEventListener('keydown', (event) => {
+  const movementKeys = [
+    'KeyW',
+    'KeyA',
+    'KeyS',
+    'KeyD',
+    'ArrowUp',
+    'ArrowDown',
+    'ArrowLeft',
+    'ArrowRight',
+    'ShiftLeft',
+    'ShiftRight'
+  ];
+
+  if (movementKeys.includes(event.code)) {
+    event.preventDefault();
+  }
+
   keys.add(event.code);
 });
 
@@ -215,10 +286,20 @@ window.addEventListener('keyup', (event) => {
   keys.delete(event.code);
 });
 
+window.addEventListener('blur', () => {
+  keys.clear();
+  cameraState.moveVelocity.set(0, 0, 0);
+});
+
 canvas.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+
   pointerState.active = true;
+  pointerState.pointerId = event.pointerId;
   pointerState.x = event.clientX;
   pointerState.y = event.clientY;
+
+  canvas.style.cursor = 'grabbing';
   canvas.setPointerCapture(event.pointerId);
 });
 
@@ -231,17 +312,28 @@ canvas.addEventListener('pointermove', (event) => {
   pointerState.x = event.clientX;
   pointerState.y = event.clientY;
 
-  cameraState.yaw -= dx * 0.006;
+  cameraState.yaw -=
+    dx * CONFIG.camera.orbitSensitivity;
 
   cameraState.pitch = THREE.MathUtils.clamp(
-    cameraState.pitch + dy * 0.0045,
-    0.48,
-    1.28
+    cameraState.pitch +
+      dy * CONFIG.camera.pitchSensitivity,
+    CONFIG.camera.minPitch,
+    CONFIG.camera.maxPitch
   );
 });
 
 function endPointer(event) {
+  if (
+    pointerState.pointerId !== null &&
+    event.pointerId !== pointerState.pointerId
+  ) {
+    return;
+  }
+
   pointerState.active = false;
+  pointerState.pointerId = null;
+  canvas.style.cursor = 'grab';
 
   if (
     canvas.hasPointerCapture &&
@@ -257,36 +349,29 @@ canvas.addEventListener('pointercancel', endPointer);
 window.addEventListener('wheel', (event) => {
   event.preventDefault();
 
-  if (event.ctrlKey) {
-    cameraState.distance = THREE.MathUtils.clamp(
-      cameraState.distance + event.deltaY * 0.65,
-      CONFIG.camera.minDistance,
-      CONFIG.camera.maxDistance
-    );
+  const rawDelta =
+    event.deltaY !== 0
+      ? event.deltaY
+      : event.deltaX;
 
-    return;
-  }
+  const zoomDelta =
+    event.ctrlKey
+      ? rawDelta * CONFIG.camera.pinchZoomSpeed
+      : rawDelta * CONFIG.camera.wheelZoomSpeed;
 
-  const scale =
-    cameraState.distance / CONFIG.camera.startDistance;
-
-  const panX = event.deltaX * 0.055 * scale;
-  const panZ = event.deltaY * 0.055 * scale;
-
-  const sin = Math.sin(cameraState.yaw);
-  const cos = Math.cos(cameraState.yaw);
-
-  cameraState.target.x +=
-    panX * cos - panZ * sin;
-
-  cameraState.target.z +=
-    panX * sin + panZ * cos;
-
-  cameraState.target.y = terrain.heightAt(
-    cameraState.target.x,
-    cameraState.target.z
+  cameraState.distance = THREE.MathUtils.clamp(
+    cameraState.distance + zoomDelta,
+    CONFIG.camera.minDistance,
+    CONFIG.camera.maxDistance
   );
 }, { passive: false });
+
+canvas.addEventListener('contextmenu', (event) => {
+  event.preventDefault();
+});
+
+canvas.style.cursor = 'grab';
+canvas.style.touchAction = 'none';
 
 resize();
 
