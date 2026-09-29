@@ -19,49 +19,59 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fetch tiled OSM metro extract
+      - name: Fetch tiled Odesa metro data
         shell: bash
         run: |
           set -euo pipefail
 
           python - <<'PY'
           import json
-          import math
           import time
+          import urllib.parse
           import urllib.request
-          import urllib.error
-          import xml.etree.ElementTree as ET
           from pathlib import Path
 
           WEST = 30.60
           EAST = 30.82
           SOUTH = 46.36
           NORTH = 46.58
-          COLS = 6
-          ROWS = 6
 
-          out_dir = Path("data")
-          out_dir.mkdir(exist_ok=True)
+          COLS = 4
+          ROWS = 4
 
-          nodes = {}
-          ways = {}
+          ENDPOINTS = [
+              "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+              "https://overpass.private.coffee/api/interpreter",
+              "https://overpass-api.de/api/interpreter",
+          ]
 
-          def fetch(url, attempts=4):
-              last = None
-              for attempt in range(attempts):
-                  try:
-                      req = urllib.request.Request(
-                          url,
-                          headers={
-                              "User-Agent": "odesa-sky-defense-snapshot/1.0"
-                          }
-                      )
-                      with urllib.request.urlopen(req, timeout=90) as response:
-                          return response.read()
-                  except Exception as exc:
-                      last = exc
-                      time.sleep(6 + attempt * 6)
-              raise last
+          Path("data").mkdir(exist_ok=True)
+
+          elements = {}
+
+          def request_tile(endpoint, query):
+              body = urllib.parse.urlencode(
+                  {"data": query}
+              ).encode("utf-8")
+
+              req = urllib.request.Request(
+                  endpoint,
+                  data=body,
+                  headers={
+                      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                      "Accept": "application/json",
+                      "User-Agent": "odesa-sky-defense-snapshot/1.0",
+                  },
+                  method="POST",
+              )
+
+              with urllib.request.urlopen(
+                  req,
+                  timeout=120
+              ) as response:
+                  return json.load(response)
+
+          successful_tiles = 0
 
           for row in range(ROWS):
               south = SOUTH + (NORTH - SOUTH) * row / ROWS
@@ -71,95 +81,115 @@ jobs:
                   west = WEST + (EAST - WEST) * col / COLS
                   east = WEST + (EAST - WEST) * (col + 1) / COLS
 
-                  bbox = f"{west},{south},{east},{north}"
-                  url = (
-                      "https://api.openstreetmap.org/api/0.6/map?bbox="
-                      + bbox
-                  )
+                  query = f"""
+          [out:json][timeout:90];
+          (
+            way["building"]({south},{west},{north},{east});
+            way["highway"]({south},{west},{north},{east});
+          );
+          out geom;
+          """
 
-                  print(f"Fetching tile {row + 1}/{ROWS} {col + 1}/{COLS}: {bbox}")
+                  tile_ok = False
 
-                  try:
-                      xml = fetch(url)
-                  except Exception as exc:
-                      print(f"Tile failed: {exc}")
-                      continue
+                  for endpoint in ENDPOINTS:
+                      for attempt in range(2):
+                          try:
+                              print(
+                                  f"Tile {row + 1}/{ROWS} {col + 1}/{COLS} "
+                                  f"via {endpoint}"
+                              )
 
-                  root = ET.fromstring(xml)
+                              data = request_tile(
+                                  endpoint,
+                                  query
+                              )
 
-                  for node in root.findall("node"):
-                      node_id = node.attrib.get("id")
-                      lat = node.attrib.get("lat")
-                      lon = node.attrib.get("lon")
+                              tile_elements = data.get(
+                                  "elements",
+                                  []
+                              )
 
-                      if node_id and lat and lon:
-                          nodes[node_id] = {
-                              "lat": float(lat),
-                              "lon": float(lon)
-                          }
+                              if len(tile_elements) < 10:
+                                  raise RuntimeError(
+                                      "insufficient tile data"
+                                  )
 
-                  for way in root.findall("way"):
-                      tags = {
-                          tag.attrib.get("k"): tag.attrib.get("v")
-                          for tag in way.findall("tag")
-                          if tag.attrib.get("k")
-                      }
+                              for element in tile_elements:
+                                  if element.get("type") != "way":
+                                      continue
 
-                      if "building" not in tags and "highway" not in tags:
-                          continue
+                                  element_id = element.get("id")
+                                  geometry = element.get("geometry")
 
-                      way_id = way.attrib.get("id")
-                      if not way_id:
-                          continue
+                                  if (
+                                      element_id is None or
+                                      not geometry or
+                                      len(geometry) < 2
+                                  ):
+                                      continue
 
-                      refs = [
-                          nd.attrib.get("ref")
-                          for nd in way.findall("nd")
-                          if nd.attrib.get("ref")
-                      ]
+                                  tags = element.get("tags", {})
 
-                      ways[way_id] = {
-                          "id": int(way_id),
-                          "tags": tags,
-                          "refs": refs
-                      }
+                                  if (
+                                      "building" not in tags and
+                                      "highway" not in tags
+                                  ):
+                                      continue
 
-                  time.sleep(1.0)
+                                  elements[element_id] = element
 
-          elements = []
+                              successful_tiles += 1
+                              tile_ok = True
+                              break
 
-          for way in ways.values():
-              geometry = [
-                  nodes[ref]
-                  for ref in way["refs"]
-                  if ref in nodes
-              ]
+                          except Exception as exc:
+                              print(
+                                  f"Attempt failed: {exc}"
+                              )
+                              time.sleep(
+                                  5 + attempt * 7
+                              )
 
-              if len(geometry) < 2:
-                  continue
+                      if tile_ok:
+                          break
 
-              elements.append({
-                  "type": "way",
-                  "id": way["id"],
-                  "tags": way["tags"],
-                  "geometry": geometry
-              })
+                  if not tile_ok:
+                      print(
+                          f"Skipping unavailable tile "
+                          f"{row + 1}/{ROWS} {col + 1}/{COLS}"
+                      )
 
-          if len(elements) < 500:
+                  time.sleep(1)
+
+          merged = list(elements.values())
+
+          print(
+              f"Successful tiles: {successful_tiles}/{ROWS * COLS}"
+          )
+          print(
+              f"Merged ways: {len(merged)}"
+          )
+
+          if (
+              successful_tiles < 8 or
+              len(merged) < 1500
+          ):
               raise SystemExit(
-                  f"Metro snapshot too small: {len(elements)} elements"
+                  "Metro snapshot coverage is insufficient"
               )
 
           snapshot = {
-              "version": 1,
-              "generator": "OpenStreetMap tiled metro snapshot",
+              "version": 2,
+              "generator": "tiled Overpass metro snapshot",
               "bbox": {
                   "west": WEST,
                   "east": EAST,
                   "south": SOUTH,
-                  "north": NORTH
+                  "north": NORTH,
               },
-              "elements": elements
+              "successful_tiles": successful_tiles,
+              "elements": merged,
           }
 
           with open(
@@ -173,11 +203,6 @@ jobs:
                   ensure_ascii=False,
                   separators=(",", ":")
               )
-
-          print(
-              f"Prepared metro snapshot with {len(elements)} ways "
-              f"and {len(nodes)} nodes"
-          )
           PY
 
       - name: Commit metro snapshot
