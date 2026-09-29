@@ -208,12 +208,55 @@ export function createCoast({
   const baseSeaColor = new THREE.Color(0x285d6a);
   const nightSeaColor = new THREE.Color(0x102b38);
 
-  function updateNight(factor) {
-    const night = THREE.MathUtils.clamp(
-      factor,
-      0,
-      1
-    );
+  const reflectionGeometry = new THREE.PlaneGeometry(
+    120,
+    320,
+    1,
+    1
+  );
+
+  const reflectionMaterial = new THREE.MeshBasicMaterial({
+    color: 0xb7d6ff,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide
+  });
+
+  const moonReflection = new THREE.Mesh(
+    reflectionGeometry,
+    reflectionMaterial
+  );
+
+  moonReflection.rotation.x = -Math.PI / 2;
+  moonReflection.position.set(
+    330,
+    seaLevel + 0.08,
+    0
+  );
+  moonReflection.visible = false;
+  group.add(moonReflection);
+
+  function updateNight(input) {
+    const night =
+      typeof input === 'number'
+        ? THREE.MathUtils.clamp(input, 0, 1)
+        : THREE.MathUtils.clamp(
+            input?.nightFactor ?? 0,
+            0,
+            1
+          );
+
+    const celestial =
+      typeof input === 'object'
+        ? input?.celestial
+        : null;
+
+    const weather =
+      typeof input === 'object'
+        ? input?.weather
+        : null;
 
     lightMaterial.opacity =
       THREE.MathUtils.clamp(
@@ -249,6 +292,74 @@ export function createCoast({
 
     seaMaterial.emissiveIntensity =
       night * 0.08;
+
+    const moonAltitude =
+      celestial?.moon?.altitude ?? -1;
+
+    const moonFraction =
+      celestial?.moon?.fraction ?? 0;
+
+    const cloudCover =
+      THREE.MathUtils.clamp(
+        (weather?.cloudCover ?? 0) / 100,
+        0,
+        1
+      );
+
+    const moonAboveWater =
+      THREE.MathUtils.smoothstep(
+        moonAltitude,
+        -0.03,
+        0.2
+      );
+
+    const reflectionStrength =
+      night *
+      moonFraction *
+      moonAboveWater *
+      (1 - cloudCover * 0.72);
+
+    reflectionMaterial.opacity =
+      THREE.MathUtils.lerp(
+        reflectionMaterial.opacity,
+        reflectionStrength * 0.18,
+        0.08
+      );
+
+    moonReflection.visible =
+      reflectionMaterial.opacity > 0.01;
+
+    if (celestial?.moon) {
+      const x =
+        325 +
+        Math.sin(celestial.moon.azimuth) * 35;
+
+      const z =
+        Math.cos(celestial.moon.azimuth) * 70;
+
+      moonReflection.position.x = x;
+      moonReflection.position.z = z;
+
+      moonReflection.rotation.z =
+        celestial.moon.azimuth * 0.22;
+
+      const stretch =
+        THREE.MathUtils.lerp(
+          0.7,
+          1.35,
+          THREE.MathUtils.clamp(
+            moonAltitude / 0.9,
+            0,
+            1
+          )
+        );
+
+      moonReflection.scale.set(
+        0.8,
+        stretch,
+        1
+      );
+    }
   }
 
   return {
@@ -257,6 +368,7 @@ export function createCoast({
     quayLights,
     portGlow,
     industrialGlow,
+    moonReflection,
     updateNight
   };
 }
