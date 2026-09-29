@@ -1,13 +1,13 @@
 export const CONFIG = {
   world: {
-    width: 1100,
-    depth: 1100,
+    width: 3200,
+    depth: 3200,
     seaLevel: -2.4
   },
   camera: {
     minDistance: 90,
-    maxDistance: 320,
-    startDistance: 205,
+    maxDistance: 980,
+    startDistance: 260,
     pitch: 0.96,
     moveSpeed: 62,
     sprintMultiplier: 1.75,
@@ -22,7 +22,7 @@ export const CONFIG = {
   },
   atmosphere: {
     sunset: true,
-    fogNear: 150,
-    fogFar: 760
+    fogNear: 180,
+    fogFar: 1650
   }
 };
