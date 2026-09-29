@@ -33,9 +33,9 @@ function makeCloud({
           : 1.5;
 
     puff.scale.set(
-      (7 + Math.random() * 10) * elongation,
-      1.8 + Math.random() * 4,
-      4 + Math.random() * 8
+      (6 + Math.random() * 8) * elongation,
+      1.4 + Math.random() * 2.8,
+      3.5 + Math.random() * 6
     );
 
     puff.position.set(
@@ -63,9 +63,9 @@ function makeCloud({
 export function createClouds(scene) {
   const clouds = [];
   const specs = [
-    { count: 8, layer: 'high', altitude: 145, opacity: 0.055, scale: 1.15, puffs: 6 },
-    { count: 10, layer: 'mid', altitude: 112, opacity: 0.08, scale: 0.95, puffs: 8 },
-    { count: 8, layer: 'low', altitude: 78, opacity: 0.11, scale: 0.78, puffs: 9 }
+    { count: 10, layer: 'high', altitude: 150, opacity: 0.04, scale: 1.0, puffs: 8 },
+    { count: 12, layer: 'mid', altitude: 116, opacity: 0.055, scale: 0.82, puffs: 10 },
+    { count: 10, layer: 'low', altitude: 84, opacity: 0.07, scale: 0.64, puffs: 11 }
   ];
 
   for (const spec of specs) {
@@ -196,7 +196,7 @@ export function createClouds(scene) {
       for (const puff of cloud.children) {
         const targetOpacity =
           cloud.userData.baseOpacity *
-          (0.2 + visibility * 4.2);
+          (0.18 + visibility * 3.25);
 
         puff.material.opacity =
           THREE.MathUtils.lerp(
