@@ -223,7 +223,9 @@ export function createEnvironmentManager({
     const source =
       weather.source === 'fallback'
         ? 'LOCAL'
-        : 'LIVE';
+        : weather.source === 'cache'
+          ? 'CACHE'
+          : 'LIVE';
 
     statusElement.textContent =
       `${source} · ${time.label} · ${time.season.toUpperCase()} · ` +
