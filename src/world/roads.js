@@ -21,6 +21,7 @@ export function createRoads(elements, heightAt) {
   });
 
   const lampPositions = [];
+  const markingPositions = [];
 
   for (const element of elements) {
     if (!element.tags?.highway || !element.geometry?.length) continue;
@@ -68,9 +69,47 @@ export function createRoads(elements, heightAt) {
           p.y + 2.8,
           p.z
         );
+
+        if (
+          ['primary', 'secondary', 'tertiary']
+            .includes(element.tags.highway) &&
+          i % 2 === 0
+        ) {
+          markingPositions.push(
+            p.x,
+            p.y + 0.12,
+            p.z
+          );
+        }
       }
     }
   }
+
+  const markingGeometry = new THREE.BufferGeometry();
+  markingGeometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(
+      markingPositions,
+      3
+    )
+  );
+
+  const markingMaterial = new THREE.PointsMaterial({
+    color: 0xd9d0b0,
+    size: 0.42,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.62,
+    depthWrite: false
+  });
+
+  const markings = new THREE.Points(
+    markingGeometry,
+    markingMaterial
+  );
+
+  markings.renderOrder = 8;
+  group.add(markings);
 
   const lampGeometry = new THREE.BufferGeometry();
   lampGeometry.setAttribute(
@@ -116,5 +155,6 @@ export function createRoads(elements, heightAt) {
 
   group.userData.nightLampMaterial = lampMaterial;
   group.userData.nightHaloMaterial = haloMaterial;
+  group.userData.markingMaterial = markingMaterial;
   return group;
 }
