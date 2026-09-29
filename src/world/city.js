@@ -18,7 +18,7 @@ function boxBuilding(x, z, w, d, h, color) {
   return mesh;
 }
 
-function fallbackCity(heightAt) {
+export function createFallbackCity(heightAt) {
   const group = new THREE.Group();
   group.name = 'fallback-city';
 
@@ -68,16 +68,24 @@ function fallbackCity(heightAt) {
   return group;
 }
 
-export async function createCity(heightAt) {
-  try {
-    const data = await loadOsm();
-    const group = new THREE.Group();
-    group.name = 'odesa-city';
-    group.add(createRoads(data.elements, heightAt));
-    group.add(createBuildings(data.elements, heightAt));
-    return group;
-  } catch (error) {
-    console.warn('OSM unavailable, using fallback city', error);
-    return fallbackCity(heightAt);
+export async function createOsmCity(heightAt) {
+  const data = await loadOsm();
+
+  const roads = createRoads(data.elements, heightAt);
+  const buildings = createBuildings(data.elements, heightAt);
+
+  const group = new THREE.Group();
+  group.name = 'odesa-city';
+  group.add(roads, buildings);
+
+  const objectCount =
+    roads.children.length +
+    buildings.children.length;
+
+  if (objectCount < 20) {
+    throw new Error(`OSM city returned too few objects: ${objectCount}`);
   }
+
+  group.userData.objectCount = objectCount;
+  return group;
 }
