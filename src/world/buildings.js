@@ -37,8 +37,8 @@ export function createBuildings(elements, heightAt) {
     element.geometry.forEach((point, index) => {
       const p = project(point.lat, point.lon);
 
-      if (index === 0) shape.moveTo(p.x, p.z);
-      else shape.lineTo(p.x, p.z);
+      if (index === 0) shape.moveTo(p.x, -p.z);
+      else shape.lineTo(p.x, -p.z);
     });
 
     const height = getHeight(element.tags, element.id);
@@ -47,7 +47,7 @@ export function createBuildings(elements, heightAt) {
       bevelEnabled: false
     });
 
-    geometry.rotateX(Math.PI / 2);
+    geometry.rotateX(-Math.PI / 2);
 
     const material = new THREE.MeshStandardMaterial({
       color: palette[Math.abs(Number(element.id)) % palette.length],
