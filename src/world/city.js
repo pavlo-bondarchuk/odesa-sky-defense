@@ -124,15 +124,27 @@ export async function createOsmCity(heightAt, onProgress = () => {}) {
         material.userData.nightWeight * night;
     }
 
+    const windowMaterials =
+      buildings.userData.windowMaterials || [];
+
+    windowMaterials.forEach((material, index) => {
+      material.opacity =
+        THREE.MathUtils.clamp(
+          (night - 0.12) / 0.68,
+          0,
+          index === 0 ? 0.92 : 0.66
+        );
+    });
+
     const streetMaterial =
       roads.userData.nightLampMaterial;
 
     if (streetMaterial) {
       streetMaterial.opacity =
         THREE.MathUtils.clamp(
-          (night - 0.14) / 0.72,
+          (night - 0.06) / 0.62,
           0,
-          0.95
+          1
         );
     }
   };
