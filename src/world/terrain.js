@@ -103,8 +103,8 @@ export function createTerrain() {
   group.name = 'terrain';
 
   const geometry = new THREE.PlaneGeometry(
-    CONFIG.world.width,
-    CONFIG.world.depth,
+    CONFIG.world.width * 1.85,
+    CONFIG.world.depth * 1.85,
     150,
     150
   );
@@ -141,6 +141,30 @@ export function createTerrain() {
 
   ground.receiveShadow = true;
   group.add(ground);
+
+  const horizonGeometry = new THREE.RingGeometry(
+    CONFIG.world.width * 0.68,
+    CONFIG.world.width * 1.45,
+    96,
+    1
+  );
+
+  horizonGeometry.rotateX(-Math.PI / 2);
+
+  const horizon = new THREE.Mesh(
+    horizonGeometry,
+    new THREE.MeshBasicMaterial({
+      color: 0x26343d,
+      transparent: true,
+      opacity: 0.42,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    })
+  );
+
+  horizon.position.y = -16;
+  horizon.renderOrder = -5;
+  group.add(horizon);
 
   return {
     group,
