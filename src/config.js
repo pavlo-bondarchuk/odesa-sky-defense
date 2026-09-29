@@ -1,7 +1,7 @@
 export const CONFIG = {
   world: {
-    width: 520,
-    depth: 520,
+    width: 1100,
+    depth: 1100,
     seaLevel: -2.4
   },
   camera: {
@@ -14,7 +14,7 @@ export const CONFIG = {
   },
   atmosphere: {
     sunset: true,
-    fogNear: 130,
-    fogFar: 520
+    fogNear: 150,
+    fogFar: 760
   }
 };
