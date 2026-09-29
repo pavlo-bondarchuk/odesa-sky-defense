@@ -147,6 +147,18 @@ export async function createOsmCity(heightAt, onProgress = () => {}) {
           1
         );
     }
+
+    const streetHaloMaterial =
+      roads.userData.nightHaloMaterial;
+
+    if (streetHaloMaterial) {
+      streetHaloMaterial.opacity =
+        THREE.MathUtils.clamp(
+          (night - 0.14) / 0.72,
+          0,
+          0.34
+        );
+    }
   };
 
   onProgress({
