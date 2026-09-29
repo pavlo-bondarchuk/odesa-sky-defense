@@ -2,18 +2,18 @@ import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 
 function heightAt(x, z) {
-  const coastalSlope = THREE.MathUtils.smoothstep(-z, 20, 220) * 8.5;
+  const coastalSlope = THREE.MathUtils.smoothstep(-z, 20, 220) * 4.2;
   const rolling =
-    Math.sin(x * 0.016) * 1.2 +
-    Math.cos(z * 0.013) * 1.0 +
-    Math.sin((x + z) * 0.011) * 0.75;
+    Math.sin(x * 0.016) * 0.7 +
+    Math.cos(z * 0.013) * 0.55 +
+    Math.sin((x + z) * 0.011) * 0.38;
 
   const plateau = Math.exp(
     -(
       Math.pow((x + 110) / 95, 2) +
       Math.pow((z - 70) / 80, 2)
     )
-  ) * 11;
+  ) * 5.5;
 
   return coastalSlope + rolling + plateau;
 }
