@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 
 const SEA_LEVEL = CONFIG.world.seaLevel;
-const CURVATURE_RADIUS = 3600;
+const CURVATURE_RADIUS = 12000;
 
 export function coastX(z) {
   return (
