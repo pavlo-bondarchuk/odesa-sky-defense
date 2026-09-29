@@ -36,7 +36,7 @@ scene.fog = new THREE.Fog(
   CONFIG.atmosphere.fogFar
 );
 
-const camera = new THREE.PerspectiveCamera(44, 1, 1, 1100);
+const camera = new THREE.PerspectiveCamera(44, 1, 1, 5000);
 
 const cameraState = {
   target: new THREE.Vector3(0, 0, 0),
