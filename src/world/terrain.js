@@ -1,21 +1,101 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 
-function heightAt(x, z) {
-  const coastalSlope = THREE.MathUtils.smoothstep(-z, 20, 220) * 4.2;
+const SEA_LEVEL = CONFIG.world.seaLevel;
+const CURVATURE_RADIUS = 3600;
+
+export function coastX(z) {
+  return (
+    118 +
+    Math.sin(z * 0.008) * 10 +
+    Math.sin(z * 0.021 + 1.4) * 4
+  );
+}
+
+function earthCurvature(x, z) {
+  const r2 = x * x + z * z;
+  return -r2 / (2 * CURVATURE_RADIUS);
+}
+
+function reliefHeight(x, z) {
+  const coast = coastX(z);
+  const inland = coast - x;
+
+  const plateau =
+    THREE.MathUtils.smoothstep(inland, 12, 185) * 18;
+
+  const cityRidge =
+    Math.exp(
+      -(
+        Math.pow((x + 65) / 150, 2) +
+        Math.pow((z - 20) / 210, 2)
+      )
+    ) * 7.5;
+
+  const historicHill =
+    Math.exp(
+      -(
+        Math.pow((x + 15) / 95, 2) +
+        Math.pow((z + 30) / 115, 2)
+      )
+    ) * 4.5;
+
   const rolling =
-    Math.sin(x * 0.016) * 0.7 +
-    Math.cos(z * 0.013) * 0.55 +
-    Math.sin((x + z) * 0.011) * 0.38;
+    Math.sin(x * 0.012) * 0.75 +
+    Math.cos(z * 0.011) * 0.65 +
+    Math.sin((x + z) * 0.007) * 0.5;
 
-  const plateau = Math.exp(
-    -(
-      Math.pow((x + 110) / 95, 2) +
-      Math.pow((z - 70) / 80, 2)
-    )
-  ) * 5.5;
+  const coastDrop =
+    -THREE.MathUtils.smoothstep(x - coast, -8, 42) * 12;
 
-  return coastalSlope + rolling + plateau;
+  const portTerrace =
+    x > coast - 26 &&
+    x < coast + 24
+      ? -4.8
+      : 0;
+
+  return (
+    plateau +
+    cityRidge +
+    historicHill +
+    rolling +
+    coastDrop +
+    portTerrace
+  );
+}
+
+export function heightAt(x, z) {
+  const coast = coastX(z);
+  const curvature = earthCurvature(x, z);
+
+  if (x > coast + 18) {
+    return SEA_LEVEL - 3.2 + curvature * 0.14;
+  }
+
+  return reliefHeight(x, z) + curvature;
+}
+
+function terrainColor(x, z, y) {
+  const coast = coastX(z);
+  const inland = coast - x;
+
+  if (x > coast + 2) {
+    return new THREE.Color(0x35484b);
+  }
+
+  if (inland < 20) {
+    return new THREE.Color(0x89765f);
+  }
+
+  if (y > 20) {
+    return new THREE.Color(0x747768);
+  }
+
+  if (y > 10) {
+    return new THREE.Color(0x6f7564);
+  }
+
+  return new THREE.Color(0x686f60);
 }
 
 export function createTerrain() {
@@ -25,8 +105,8 @@ export function createTerrain() {
   const geometry = new THREE.PlaneGeometry(
     CONFIG.world.width,
     CONFIG.world.depth,
-    90,
-    90
+    150,
+    150
   );
   geometry.rotateX(-Math.PI / 2);
 
@@ -37,12 +117,10 @@ export function createTerrain() {
     const x = positions.getX(i);
     const z = positions.getZ(i);
     const y = heightAt(x, z);
+
     positions.setY(i, y);
 
-    const h = THREE.MathUtils.clamp((y + 3) / 18, 0, 1);
-    const low = new THREE.Color(0x6a745f);
-    const high = new THREE.Color(0x93937f);
-    const color = low.lerp(high, h);
+    const color = terrainColor(x, z, y);
     colors.push(color.r, color.g, color.b);
   }
 
@@ -56,19 +134,18 @@ export function createTerrain() {
     geometry,
     new THREE.MeshStandardMaterial({
       vertexColors: true,
-      roughness: 0.96,
-      metalness: 0.01
+      roughness: 0.98,
+      metalness: 0
     })
   );
 
   ground.receiveShadow = true;
   group.add(ground);
 
-  const grid = new THREE.GridHelper(430, 18, 0x667067, 0x535d57);
-  grid.position.y = 0.12;
-  grid.material.transparent = true;
-  grid.material.opacity = 0.1;
-  group.add(grid);
-
-  return { group, heightAt };
+  return {
+    group,
+    heightAt,
+    coastX,
+    seaLevel: SEA_LEVEL
+  };
 }
