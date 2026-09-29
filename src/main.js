@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { createTerrain } from './world/terrain.js';
+import { createCity } from './world/city.js';
 import { createLighting } from './atmosphere/lighting.js';
 import { createSky } from './atmosphere/sky.js';
 import { createClouds } from './atmosphere/clouds.js';
@@ -42,6 +43,14 @@ const clouds = createClouds(scene);
 const terrain = createTerrain();
 scene.add(terrain.group);
 
+const city = await createCity(terrain.heightAt);
+scene.add(city);
+
+cameraState.target.y = terrain.heightAt(
+  cameraState.target.x,
+  cameraState.target.z
+);
+
 function updateCamera(delta) {
   const pan = new THREE.Vector3();
 
@@ -59,6 +68,10 @@ function updateCamera(delta) {
 
     cameraState.target.x += worldX * CONFIG.camera.panSpeed * delta;
     cameraState.target.z += worldZ * CONFIG.camera.panSpeed * delta;
+    cameraState.target.y = terrain.heightAt(
+      cameraState.target.x,
+      cameraState.target.z
+    );
   }
 
   if (keys.has('KeyQ')) cameraState.yaw += CONFIG.camera.rotationSpeed * delta;
