@@ -418,6 +418,112 @@ function createProceduralOutskirts(heightAt) {
 
   group.add(mesh);
 
+  const roadMaterial = new THREE.LineBasicMaterial({
+    color: 0x51595d,
+    transparent: true,
+    opacity: 0.82
+  });
+
+  function addRoad(points) {
+    const positions = [];
+
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const a = points[i];
+      const b = points[i + 1];
+
+      positions.push(
+        a.x,
+        heightAt(a.x, a.z) + 0.14,
+        a.z,
+        b.x,
+        heightAt(b.x, b.z) + 0.14,
+        b.z
+      );
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(
+        positions,
+        3
+      )
+    );
+
+    group.add(
+      new THREE.LineSegments(
+        geometry,
+        roadMaterial
+      )
+    );
+  }
+
+  const districtCenters = districts.map(
+    (district) => ({
+      x: district.x,
+      z: district.z
+    })
+  );
+
+  addRoad([
+    { x: -620, z: 360 },
+    { x: -430, z: 300 },
+    { x: -260, z: 120 },
+    { x: -80, z: 20 },
+    { x: 120, z: -120 },
+    { x: 320, z: -300 }
+  ]);
+
+  addRoad([
+    { x: -520, z: -420 },
+    { x: -250, z: -330 },
+    { x: -30, z: -390 },
+    { x: 260, z: -300 },
+    { x: 500, z: -180 }
+  ]);
+
+  for (const district of districts) {
+    const halfW =
+      district.cols * district.sx * 0.5;
+
+    const halfD =
+      district.rows * district.sz * 0.5;
+
+    for (let row = -2; row <= 2; row += 1) {
+      const z =
+        district.z +
+        row * halfD * 0.34;
+
+      addRoad([
+        {
+          x: district.x - halfW * 0.55,
+          z
+        },
+        {
+          x: district.x + halfW * 0.55,
+          z
+        }
+      ]);
+    }
+
+    for (let col = -2; col <= 2; col += 1) {
+      const x =
+        district.x +
+        col * halfW * 0.34;
+
+      addRoad([
+        {
+          x,
+          z: district.z - halfD * 0.55
+        },
+        {
+          x,
+          z: district.z + halfD * 0.55
+        }
+      ]);
+    }
+  }
+
   return group;
 }
 
