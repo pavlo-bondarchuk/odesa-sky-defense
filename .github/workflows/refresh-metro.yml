@@ -1,0 +1,195 @@
+name: Refresh Odesa Metro Snapshot
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/refresh-metro.yml"
+  schedule:
+    - cron: "41 3 * * 1"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch tiled OSM metro extract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          import math
+          import time
+          import urllib.request
+          import urllib.error
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          WEST = 30.60
+          EAST = 30.82
+          SOUTH = 46.36
+          NORTH = 46.58
+          COLS = 6
+          ROWS = 6
+
+          out_dir = Path("data")
+          out_dir.mkdir(exist_ok=True)
+
+          nodes = {}
+          ways = {}
+
+          def fetch(url, attempts=4):
+              last = None
+              for attempt in range(attempts):
+                  try:
+                      req = urllib.request.Request(
+                          url,
+                          headers={
+                              "User-Agent": "odesa-sky-defense-snapshot/1.0"
+                          }
+                      )
+                      with urllib.request.urlopen(req, timeout=90) as response:
+                          return response.read()
+                  except Exception as exc:
+                      last = exc
+                      time.sleep(6 + attempt * 6)
+              raise last
+
+          for row in range(ROWS):
+              south = SOUTH + (NORTH - SOUTH) * row / ROWS
+              north = SOUTH + (NORTH - SOUTH) * (row + 1) / ROWS
+
+              for col in range(COLS):
+                  west = WEST + (EAST - WEST) * col / COLS
+                  east = WEST + (EAST - WEST) * (col + 1) / COLS
+
+                  bbox = f"{west},{south},{east},{north}"
+                  url = (
+                      "https://api.openstreetmap.org/api/0.6/map?bbox="
+                      + bbox
+                  )
+
+                  print(f"Fetching tile {row + 1}/{ROWS} {col + 1}/{COLS}: {bbox}")
+
+                  try:
+                      xml = fetch(url)
+                  except Exception as exc:
+                      print(f"Tile failed: {exc}")
+                      continue
+
+                  root = ET.fromstring(xml)
+
+                  for node in root.findall("node"):
+                      node_id = node.attrib.get("id")
+                      lat = node.attrib.get("lat")
+                      lon = node.attrib.get("lon")
+
+                      if node_id and lat and lon:
+                          nodes[node_id] = {
+                              "lat": float(lat),
+                              "lon": float(lon)
+                          }
+
+                  for way in root.findall("way"):
+                      tags = {
+                          tag.attrib.get("k"): tag.attrib.get("v")
+                          for tag in way.findall("tag")
+                          if tag.attrib.get("k")
+                      }
+
+                      if "building" not in tags and "highway" not in tags:
+                          continue
+
+                      way_id = way.attrib.get("id")
+                      if not way_id:
+                          continue
+
+                      refs = [
+                          nd.attrib.get("ref")
+                          for nd in way.findall("nd")
+                          if nd.attrib.get("ref")
+                      ]
+
+                      ways[way_id] = {
+                          "id": int(way_id),
+                          "tags": tags,
+                          "refs": refs
+                      }
+
+                  time.sleep(1.0)
+
+          elements = []
+
+          for way in ways.values():
+              geometry = [
+                  nodes[ref]
+                  for ref in way["refs"]
+                  if ref in nodes
+              ]
+
+              if len(geometry) < 2:
+                  continue
+
+              elements.append({
+                  "type": "way",
+                  "id": way["id"],
+                  "tags": way["tags"],
+                  "geometry": geometry
+              })
+
+          if len(elements) < 500:
+              raise SystemExit(
+                  f"Metro snapshot too small: {len(elements)} elements"
+              )
+
+          snapshot = {
+              "version": 1,
+              "generator": "OpenStreetMap tiled metro snapshot",
+              "bbox": {
+                  "west": WEST,
+                  "east": EAST,
+                  "south": SOUTH,
+                  "north": NORTH
+              },
+              "elements": elements
+          }
+
+          with open(
+              "data/odesa-metro.json",
+              "w",
+              encoding="utf-8"
+          ) as file:
+              json.dump(
+                  snapshot,
+                  file,
+                  ensure_ascii=False,
+                  separators=(",", ":")
+              )
+
+          print(
+              f"Prepared metro snapshot with {len(elements)} ways "
+              f"and {len(nodes)} nodes"
+          )
+          PY
+
+      - name: Commit metro snapshot
+        shell: bash
+        run: |
+          if git diff --quiet -- data/odesa-metro.json; then
+            echo "Metro snapshot unchanged"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/odesa-metro.json
+          git commit -m "Refresh bundled Odesa metro snapshot"
+          git push
