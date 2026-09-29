@@ -68,10 +68,35 @@ export function createFallbackCity(heightAt) {
   return group;
 }
 
-export async function createOsmCity(heightAt) {
+export async function createOsmCity(heightAt, onProgress = () => {}) {
+  onProgress({
+    stage: 'network',
+    progress: 0.08,
+    label: 'Loading Odesa map data'
+  });
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
   const data = await loadOsm();
 
+  onProgress({
+    stage: 'roads',
+    progress: 0.42,
+    label: 'Building streets'
+  });
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
   const roads = createRoads(data.elements, heightAt);
+
+  onProgress({
+    stage: 'buildings',
+    progress: 0.7,
+    label: 'Extruding buildings'
+  });
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
   const buildings = createBuildings(data.elements, heightAt);
 
   const group = new THREE.Group();
@@ -87,5 +112,12 @@ export async function createOsmCity(heightAt) {
   }
 
   group.userData.objectCount = objectCount;
+
+  onProgress({
+    stage: 'ready',
+    progress: 1,
+    label: 'Detailed city ready'
+  });
+
   return group;
 }
