@@ -79,8 +79,8 @@ export function createRoads(elements, heightAt) {
   );
 
   const lampMaterial = new THREE.PointsMaterial({
-    color: 0xffd58b,
-    size: 1.25,
+    color: 0xffcf7b,
+    size: 1.55,
     sizeAttenuation: true,
     transparent: true,
     opacity: 0,
@@ -96,6 +96,25 @@ export function createRoads(elements, heightAt) {
   lamps.renderOrder = 25;
   group.add(lamps);
 
+  const haloMaterial = new THREE.PointsMaterial({
+    color: 0xffba55,
+    size: 3.4,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+
+  const halos = new THREE.Points(
+    lampGeometry.clone(),
+    haloMaterial
+  );
+
+  halos.renderOrder = 24;
+  group.add(halos);
+
   group.userData.nightLampMaterial = lampMaterial;
+  group.userData.nightHaloMaterial = haloMaterial;
   return group;
 }
