@@ -20,6 +20,8 @@ export function createRoads(elements, heightAt) {
     side: THREE.DoubleSide
   });
 
+  const lampPositions = [];
+
   for (const element of elements) {
     if (!element.tags?.highway || !element.geometry?.length) continue;
     if (element.geometry.length < 2) continue;
@@ -46,7 +48,54 @@ export function createRoads(elements, heightAt) {
     road.scale.y = 0.05;
     road.receiveShadow = true;
     group.add(road);
+
+    const major =
+      ['primary', 'secondary', 'tertiary', 'residential']
+        .includes(element.tags.highway);
+
+    if (major) {
+      const samples = Math.max(
+        2,
+        Math.floor(curve.getLength() / 14)
+      );
+
+      for (let i = 0; i <= samples; i += 1) {
+        const t = i / samples;
+        const p = curve.getPointAt(t);
+
+        lampPositions.push(
+          p.x,
+          p.y + 2.8,
+          p.z
+        );
+      }
+    }
   }
 
+  const lampGeometry = new THREE.BufferGeometry();
+  lampGeometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(lampPositions, 3)
+  );
+
+  const lampMaterial = new THREE.PointsMaterial({
+    color: 0xffd58b,
+    size: 1.25,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+
+  const lamps = new THREE.Points(
+    lampGeometry,
+    lampMaterial
+  );
+
+  lamps.renderOrder = 25;
+  group.add(lamps);
+
+  group.userData.nightLampMaterial = lampMaterial;
   return group;
 }
