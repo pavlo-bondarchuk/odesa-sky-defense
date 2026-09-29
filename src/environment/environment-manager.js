@@ -118,9 +118,27 @@ function palette(time, weather, sun) {
     horizon = new THREE.Color(0x15243c);
     low = new THREE.Color(0x24324a);
   } else if (sun.dawn || sun.dusk) {
-    top = new THREE.Color(0x4d7099);
-    horizon = new THREE.Color(0xf28a55);
-    low = new THREE.Color(0xffc67a);
+    const blueHour =
+      THREE.MathUtils.clamp(
+        sun.nightFactor ?? 0,
+        0,
+        1
+      );
+
+    top = new THREE.Color(0x4d7099).lerp(
+      new THREE.Color(0x13253d),
+      blueHour
+    );
+
+    horizon = new THREE.Color(0xf28a55).lerp(
+      new THREE.Color(0x304763),
+      blueHour
+    );
+
+    low = new THREE.Color(0xffc67a).lerp(
+      new THREE.Color(0x3a4d66),
+      blueHour
+    );
   } else {
     top = new THREE.Color(0x5c91c3);
     horizon = new THREE.Color(0xa9c9da);
