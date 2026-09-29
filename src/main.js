@@ -9,6 +9,8 @@ import { createLighting } from './atmosphere/lighting.js';
 import { createSky } from './atmosphere/sky.js';
 import { createClouds } from './atmosphere/clouds.js';
 import { createPrecipitation } from './atmosphere/precipitation.js';
+import { createSunRays } from './atmosphere/sun-rays.js';
+import { createWeatherAnomalies } from './atmosphere/weather-anomalies.js';
 import { createEnvironmentManager } from './environment/environment-manager.js';
 
 const canvas = document.querySelector('#game');
@@ -53,6 +55,8 @@ const sky = createSky(scene);
 const lighting = createLighting(scene);
 const clouds = createClouds(scene);
 const precipitation = createPrecipitation(scene, camera);
+const sunRays = createSunRays(scene);
+const anomalies = createWeatherAnomalies(scene);
 
 const environment = createEnvironmentManager({
   scene,
@@ -61,6 +65,8 @@ const environment = createEnvironmentManager({
   lighting,
   clouds,
   precipitation,
+  sunRays,
+  anomalies,
   statusElement: document.querySelector('#environmentStatus')
 });
 const terrain = createTerrain();
@@ -69,22 +75,57 @@ scene.add(terrain.group);
 let city = createFallbackCity(terrain.heightAt);
 scene.add(city);
 
-document.querySelector('#cityStatus').textContent =
+const cityStatus = document.querySelector('#cityStatus');
+const cityLoader = document.querySelector('#cityLoader');
+const cityLoaderLabel = document.querySelector('#cityLoaderLabel');
+const cityLoaderBar = document.querySelector('#cityLoaderBar');
+
+cityStatus.textContent =
   `FALLBACK · ${city.children.length} OBJECTS`;
 
-createOsmCity(terrain.heightAt)
+cityLoader.hidden = false;
+cityLoaderLabel.textContent = 'Loading detailed Odesa map';
+cityLoaderBar.style.transform = 'scaleX(0.05)';
+
+function updateCityLoader({
+  progress = 0,
+  label = 'Loading city'
+}) {
+  cityLoader.hidden = false;
+  cityLoaderLabel.textContent = label;
+  cityLoaderBar.style.transform =
+    `scaleX(${THREE.MathUtils.clamp(progress, 0.03, 1)})`;
+}
+
+createOsmCity(terrain.heightAt, updateCityLoader)
   .then((osmCity) => {
     scene.remove(city);
     city = osmCity;
     scene.add(city);
 
-    document.querySelector('#cityStatus').textContent =
+    cityStatus.textContent =
       `OSM · ${osmCity.userData.objectCount} OBJECTS`;
+
+    cityLoaderLabel.textContent = 'Detailed city ready';
+    cityLoaderBar.style.transform = 'scaleX(1)';
+
+    setTimeout(() => {
+      cityLoader.hidden = true;
+    }, 900);
   })
   .catch((error) => {
     console.warn('OSM city load failed', error);
-    document.querySelector('#cityStatus').textContent =
+    cityStatus.textContent =
       'FALLBACK · OSM OFFLINE';
+
+    cityLoaderLabel.textContent =
+      'Detailed map unavailable — fallback active';
+
+    cityLoaderBar.style.transform = 'scaleX(1)';
+
+    setTimeout(() => {
+      cityLoader.hidden = true;
+    }, 2200);
   });
 
 cameraState.target.y = terrain.heightAt(
