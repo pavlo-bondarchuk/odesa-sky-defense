@@ -8,6 +8,8 @@ import {
 import { createLighting } from './atmosphere/lighting.js';
 import { createSky } from './atmosphere/sky.js';
 import { createClouds } from './atmosphere/clouds.js';
+import { createPrecipitation } from './atmosphere/precipitation.js';
+import { createEnvironmentManager } from './environment/environment-manager.js';
 
 const canvas = document.querySelector('#game');
 
@@ -47,9 +49,20 @@ const pointerState = {
   y: 0
 };
 
-createSky(scene);
-createLighting(scene);
+const sky = createSky(scene);
+const lighting = createLighting(scene);
 const clouds = createClouds(scene);
+const precipitation = createPrecipitation(scene, camera);
+
+const environment = createEnvironmentManager({
+  scene,
+  renderer,
+  sky,
+  lighting,
+  clouds,
+  precipitation,
+  statusElement: document.querySelector('#environmentStatus')
+});
 const terrain = createTerrain();
 scene.add(terrain.group);
 
@@ -222,7 +235,7 @@ function animate() {
   const delta = Math.min(clock.getDelta(), 0.05);
 
   updateCamera(delta);
-  clouds.update(delta);
+  environment.update(delta);
 
   renderer.render(scene, camera);
 }
