@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { loadOsm } from './osm.js';
 import { createBuildings } from './buildings.js';
 import { createRoads } from './roads.js';
+import { createCityDetails } from './city-details.js';
 
 function boxBuilding(x, z, w, d, h, color) {
   const mesh = new THREE.Mesh(
@@ -99,9 +100,22 @@ export async function createOsmCity(heightAt, onProgress = () => {}) {
 
   const buildings = createBuildings(data.elements, heightAt);
 
+  onProgress({
+    stage: 'details',
+    progress: 0.88,
+    label: 'Adding citywide detail'
+  });
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
+  const details = createCityDetails(
+    data.elements,
+    heightAt
+  );
+
   const group = new THREE.Group();
   group.name = 'odesa-city';
-  group.add(roads, buildings);
+  group.add(roads, buildings, details);
 
   const objectCount =
     roads.children.length +
@@ -147,6 +161,8 @@ export async function createOsmCity(heightAt, onProgress = () => {}) {
           1
         );
     }
+
+    details.userData.updateNight?.(night);
 
     const streetHaloMaterial =
       roads.userData.nightHaloMaterial;
