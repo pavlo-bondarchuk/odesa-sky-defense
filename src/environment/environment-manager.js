@@ -23,7 +23,9 @@ function sunState(time, weather) {
   const now = time.hour * 60 + time.minute;
   const sunrise = minutesFromIso(weather.sunrise) ?? 6 * 60 + 15;
   const sunset = minutesFromIso(weather.sunset) ?? 18 * 60 + 40;
-  const twilight = 55;
+  const civilTwilight = 40;
+  const nauticalTwilight = 82;
+  const astronomicalTwilight = 118;
 
   const dayProgress = clamp01(
     (now - sunrise) / Math.max(1, sunset - sunrise)
@@ -33,14 +35,24 @@ function sunState(time, weather) {
 
   if (now >= sunrise && now <= sunset) {
     daylight = 1;
-  } else if (now < sunrise && now >= sunrise - twilight) {
-    daylight = clamp01(
-      (now - (sunrise - twilight)) / twilight
-    );
-  } else if (now > sunset && now <= sunset + twilight) {
-    daylight = 1 - clamp01(
-      (now - sunset) / twilight
-    );
+  } else if (
+    now < sunrise &&
+    now >= sunrise - astronomicalTwilight
+  ) {
+    const progress =
+      (now - (sunrise - astronomicalTwilight)) /
+      astronomicalTwilight;
+
+    daylight = Math.pow(clamp01(progress), 1.35) * 0.72;
+  } else if (
+    now > sunset &&
+    now <= sunset + astronomicalTwilight
+  ) {
+    const progress =
+      (now - sunset) / astronomicalTwilight;
+
+    daylight =
+      (1 - Math.pow(clamp01(progress), 1.18)) * 0.72;
   }
 
   const elevation =
@@ -55,12 +67,22 @@ function sunState(time, weather) {
     );
 
   const dawn =
-    now >= sunrise - twilight &&
+    now >= sunrise - astronomicalTwilight &&
     now < sunrise + 70;
 
   const dusk =
     now > sunset - 90 &&
-    now <= sunset + twilight;
+    now <= sunset + astronomicalTwilight;
+
+  const minutesAfterSunset = Math.max(0, now - sunset);
+  const nightFactor =
+    now <= sunset
+      ? 0
+      : THREE.MathUtils.smootherstep(
+          minutesAfterSunset,
+          civilTwilight * 0.45,
+          astronomicalTwilight
+        );
 
   return {
     sunrise,
@@ -71,7 +93,11 @@ function sunState(time, weather) {
     azimuth,
     dawn,
     dusk,
-    night: daylight < 0.08
+    night: nightFactor > 0.88,
+    nightFactor,
+    civilTwilight,
+    nauticalTwilight,
+    astronomicalTwilight
   };
 }
 
@@ -218,7 +244,8 @@ export function createEnvironmentManager({
       delta,
       sun,
       weather,
-      cloudFactor
+      cloudFactor,
+      celestial
     });
 
     clouds.update(delta, {
@@ -260,9 +287,11 @@ export function createEnvironmentManager({
         ? 0x9fa9aa
         : weather.condition === 'rain' || weather.condition === 'overcast'
           ? 0x7e8589
-          : sun.night
-            ? 0x172131
-            : 0x958c82;
+          : sun.nightFactor > 0.72
+            ? 0x223144
+            : sun.dusk
+              ? 0x4e5867
+              : 0x958c82;
 
     scene.fog.color.lerp(
       new THREE.Color(targetFog),
@@ -298,11 +327,17 @@ export function createEnvironmentManager({
     );
 
     const exposure =
-      sun.night
-        ? 0.62
-        : (sun.dawn || sun.dusk)
-          ? 1.12
-          : 1.0 - cloudFactor * 0.16;
+      sun.nightFactor > 0.88
+        ? 0.9
+        : sun.dusk
+          ? THREE.MathUtils.lerp(
+              1.08,
+              0.96,
+              sun.nightFactor
+            )
+          : sun.dawn
+            ? 1.08
+            : 1.0 - cloudFactor * 0.16;
 
     renderer.toneMappingExposure =
       THREE.MathUtils.lerp(
