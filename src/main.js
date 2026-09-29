@@ -310,9 +310,11 @@ function animate() {
     nightFactor
   );
 
-  coast.updateNight?.(
-    nightFactor
-  );
+  coast.updateNight?.({
+    nightFactor,
+    celestial: environmentState.celestial,
+    weather: environmentState.weather
+  });
 
   renderer.render(scene, camera);
 }
