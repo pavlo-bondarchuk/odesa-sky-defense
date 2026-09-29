@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { createTerrain } from './world/terrain.js';
-import { createCity } from './world/city.js';
+import {
+  createFallbackCity,
+  createOsmCity
+} from './world/city.js';
 import { createLighting } from './atmosphere/lighting.js';
 import { createSky } from './atmosphere/sky.js';
 import { createClouds } from './atmosphere/clouds.js';
@@ -43,8 +46,26 @@ const clouds = createClouds(scene);
 const terrain = createTerrain();
 scene.add(terrain.group);
 
-const city = await createCity(terrain.heightAt);
+let city = createFallbackCity(terrain.heightAt);
 scene.add(city);
+
+document.querySelector('#cityStatus').textContent =
+  `FALLBACK · ${city.children.length} OBJECTS`;
+
+createOsmCity(terrain.heightAt)
+  .then((osmCity) => {
+    scene.remove(city);
+    city = osmCity;
+    scene.add(city);
+
+    document.querySelector('#cityStatus').textContent =
+      `OSM · ${osmCity.userData.objectCount} OBJECTS`;
+  })
+  .catch((error) => {
+    console.warn('OSM city load failed', error);
+    document.querySelector('#cityStatus').textContent =
+      'FALLBACK · OSM OFFLINE';
+  });
 
 cameraState.target.y = terrain.heightAt(
   cameraState.target.x,
