@@ -300,6 +300,20 @@ function animate() {
   updateCamera(delta);
   environment.update(delta);
 
+  const environmentState =
+    environment.getState();
+
+  const nightFactor =
+    environmentState.sun?.nightFactor ?? 0;
+
+  city.userData.updateNight?.(
+    nightFactor
+  );
+
+  coast.updateNight?.(
+    nightFactor
+  );
+
   renderer.render(scene, camera);
 }
 
