@@ -5,10 +5,10 @@ export const CONFIG = {
     seaLevel: -2.4
   },
   camera: {
-    minDistance: 80,
-    maxDistance: 260,
-    startDistance: 150,
-    pitch: 0.82,
+    minDistance: 90,
+    maxDistance: 320,
+    startDistance: 205,
+    pitch: 0.96,
     rotationSpeed: 0.9,
     panSpeed: 54
   },
