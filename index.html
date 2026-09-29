@@ -24,6 +24,17 @@
       </div>
     </header>
 
+    <div id="cityLoader" class="city-loader">
+      <div class="city-loader__head">
+        <span class="city-loader__spinner"></span>
+        <span id="cityLoaderLabel">Loading detailed Odesa map</span>
+      </div>
+      <div class="city-loader__track">
+        <span id="cityLoaderBar"></span>
+      </div>
+      <small>Fallback city remains active while OSM detail is prepared</small>
+    </div>
+
     <div class="hint">TRACKPAD: 2-FINGER PAN · PINCH ZOOM · PRESS + DRAG ORBIT / ANGLE &nbsp;&nbsp; WASD · Q / E</div>
     <canvas id="game"></canvas>
   </main>
