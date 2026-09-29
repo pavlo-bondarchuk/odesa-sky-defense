@@ -278,10 +278,12 @@ export function createEnvironmentManager({
 
     const far =
       weather.condition === 'fog'
-        ? 250
+        ? 260
         : weather.condition === 'rain'
-          ? 390
-          : 540;
+          ? 430
+          : weather.condition === 'overcast'
+            ? 600
+            : 760;
 
     scene.fog.near = THREE.MathUtils.lerp(
       scene.fog.near,
