@@ -110,6 +110,129 @@ export function createCoast({
   innerBreakwater.rotation.y = 0.16;
   group.add(innerBreakwater);
 
+  const detailGroup = new THREE.Group();
+  detailGroup.name = 'port-details';
+
+  const warehouseGeometry = new THREE.BoxGeometry(
+    10,
+    4.5,
+    18
+  );
+
+  const warehouseMaterial = new THREE.MeshStandardMaterial({
+    color: 0x5f6668,
+    roughness: 0.9
+  });
+
+  const warehouseCount = 34;
+
+  const warehouses = new THREE.InstancedMesh(
+    warehouseGeometry,
+    warehouseMaterial,
+    warehouseCount
+  );
+
+  const warehouseMatrix = new THREE.Matrix4();
+  const warehousePosition = new THREE.Vector3();
+  const warehouseScale = new THREE.Vector3();
+  const warehouseRotation = new THREE.Quaternion();
+  const upAxis = new THREE.Vector3(0, 1, 0);
+
+  for (let i = 0; i < warehouseCount; i += 1) {
+    const z = -250 + (i % 17) * 30;
+    const lane = Math.floor(i / 17);
+    const x = coastX(z) - 5 - lane * 18;
+
+    warehousePosition.set(
+      x,
+      heightAt(x, z) + 2.3,
+      z
+    );
+
+    warehouseRotation.setFromAxisAngle(
+      upAxis,
+      lane ? -0.08 : 0.04
+    );
+
+    warehouseScale.set(
+      0.8 + (i % 3) * 0.16,
+      0.8 + (i % 2) * 0.18,
+      0.8 + ((i + 1) % 4) * 0.12
+    );
+
+    warehouseMatrix.compose(
+      warehousePosition,
+      warehouseRotation,
+      warehouseScale
+    );
+
+    warehouses.setMatrixAt(
+      i,
+      warehouseMatrix
+    );
+  }
+
+  warehouses.castShadow = true;
+  warehouses.receiveShadow = true;
+  detailGroup.add(warehouses);
+
+  const containerGeometry = new THREE.BoxGeometry(
+    2.4,
+    1.4,
+    6
+  );
+
+  const containerMaterial = new THREE.MeshStandardMaterial({
+    color: 0x697a7d,
+    roughness: 0.78
+  });
+
+  const containerCount = 90;
+  const containers = new THREE.InstancedMesh(
+    containerGeometry,
+    containerMaterial,
+    containerCount
+  );
+
+  const containerMatrix = new THREE.Matrix4();
+  const containerPosition = new THREE.Vector3();
+  const containerScale = new THREE.Vector3();
+
+  for (let i = 0; i < containerCount; i += 1) {
+    const z = -235 + (i % 30) * 16;
+    const row = Math.floor(i / 30);
+    const x = coastX(z) + 1 - row * 8;
+
+    containerPosition.set(
+      x,
+      heightAt(x, z) + 0.9,
+      z
+    );
+
+    containerScale.set(
+      0.9 + (i % 4) * 0.05,
+      0.75 + (i % 3) * 0.14,
+      0.9
+    );
+
+    containerMatrix.compose(
+      containerPosition,
+      warehouseRotation,
+      containerScale
+    );
+
+    containers.setMatrixAt(
+      i,
+      containerMatrix
+    );
+  }
+
+  containers.castShadow = true;
+  containers.receiveShadow = true;
+  detailGroup.add(containers);
+
+  group.add(detailGroup);
+
   const quayLights = new THREE.Group();
   const lightMaterial = new THREE.MeshBasicMaterial({
     color: 0xffd69a,
@@ -369,6 +492,7 @@ export function createCoast({
     portGlow,
     industrialGlow,
     moonReflection,
+    detailGroup,
     updateNight
   };
 }
