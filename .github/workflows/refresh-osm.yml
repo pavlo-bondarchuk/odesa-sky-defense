@@ -1,0 +1,77 @@
+name: Refresh Odesa OSM Snapshot
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch OSM snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p data
+
+          QUERY='[out:json][timeout:120];(way["building"](46.470,30.718,46.491,30.750);way["highway"](46.470,30.718,46.491,30.750););out geom;'
+
+          ENDPOINTS=(
+            "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+            "https://overpass.private.coffee/api/interpreter"
+            "https://overpass-api.de/api/interpreter"
+          )
+
+          OK=0
+
+          for ENDPOINT in "${ENDPOINTS[@]}"; do
+            echo "Trying ${ENDPOINT}"
+
+            if curl               --fail               --silent               --show-error               --retry 2               --retry-delay 8               --connect-timeout 20               --max-time 150               --data-urlencode "data=${QUERY}"               "${ENDPOINT}"               -o data/odesa-osm.tmp.json; then
+
+              COUNT=$(python - <<'PY'
+import json
+with open("data/odesa-osm.tmp.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+print(len(data.get("elements", [])))
+PY
+)
+
+              echo "Received ${COUNT} elements"
+
+              if [ "${COUNT}" -gt 100 ]; then
+                mv data/odesa-osm.tmp.json data/odesa-osm.json
+                OK=1
+                break
+              fi
+            fi
+          done
+
+          rm -f data/odesa-osm.tmp.json
+
+          if [ "${OK}" -ne 1 ]; then
+            echo "All Overpass endpoints failed"
+            exit 1
+          fi
+
+      - name: Commit snapshot
+        shell: bash
+        run: |
+          if git diff --quiet -- data/odesa-osm.json; then
+            echo "Snapshot unchanged"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/odesa-osm.json
+          git commit -m "Refresh bundled Odesa OSM snapshot"
+          git push
