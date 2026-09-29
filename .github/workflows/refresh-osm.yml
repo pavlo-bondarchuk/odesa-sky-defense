@@ -2,6 +2,9 @@ name: Refresh Odesa OSM Snapshot
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/refresh-osm.yml"
   schedule:
     - cron: "17 3 * * 1"
 
