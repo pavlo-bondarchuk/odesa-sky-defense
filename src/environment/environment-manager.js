@@ -4,6 +4,7 @@ import {
   fetchOdesaWeather,
   fallbackWeather
 } from './weather-provider.js';
+import { getCelestialState } from './celestial-provider.js';
 
 function minutesFromIso(value) {
   if (!value) return null;
@@ -140,12 +141,15 @@ export function createEnvironmentManager({
   lighting,
   clouds,
   precipitation,
-  statusElement
+  statusElement,
+  sunRays,
+  anomalies
 }) {
   let weather = fallbackWeather();
   let time = getOdesaTime();
   let sun = sunState(time, weather);
   let colors = palette(time, weather, sun);
+  let celestial = getCelestialState();
   let elapsed = 0;
 
   async function refreshWeather() {
@@ -183,6 +187,7 @@ export function createEnvironmentManager({
       time = getOdesaTime();
       sun = sunState(time, weather);
       colors = palette(time, weather, sun);
+      celestial = getCelestialState();
       updateStatus();
     }
 
@@ -205,7 +210,8 @@ export function createEnvironmentManager({
       topColor: colors.top,
       horizonColor: colors.horizon,
       lowColor: colors.low,
-      sun
+      sun,
+      celestial
     });
 
     lighting.update({
@@ -219,6 +225,8 @@ export function createEnvironmentManager({
       cloudFactor,
       windSpeed: weather.windSpeed,
       windDirection: weather.windDirection,
+      windGusts: weather.windGusts,
+      humidity: weather.humidity,
       night: sun.night
     });
 
@@ -228,6 +236,24 @@ export function createEnvironmentManager({
       snowfall: weather.snowfall,
       rain: weather.rain
     });
+
+    const anomalyState = anomalies
+      ? anomalies.update(delta, {
+          condition: weather.condition,
+          windGusts: weather.windGusts,
+          precipitation: weather.precipitation
+        })
+      : { gustFactor: 0, wetness: 0 };
+
+    if (sunRays) {
+      sunRays.update(delta, {
+        sunPosition: sky.sunDisc.position,
+        sunlight: sun.daylight,
+        cloudFactor,
+        dusk: sun.dusk,
+        dawn: sun.dawn
+      });
+    }
 
     const targetFog =
       weather.condition === 'fog'
@@ -291,7 +317,12 @@ export function createEnvironmentManager({
   return {
     update,
     getState() {
-      return { time, weather, sun };
+      return {
+        time,
+        weather,
+        sun,
+        celestial
+      };
     }
   };
 }
