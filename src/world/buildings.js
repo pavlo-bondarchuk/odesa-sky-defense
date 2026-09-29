@@ -28,6 +28,8 @@ export function createBuildings(elements, heightAt) {
     0xc9b79f
   ];
 
+  const nightMaterials = [];
+
   for (const element of elements) {
     if (!element.tags?.building || !element.geometry?.length) continue;
     if (element.geometry.length < 4) continue;
@@ -49,11 +51,28 @@ export function createBuildings(elements, heightAt) {
 
     geometry.rotateX(-Math.PI / 2);
 
+    const seed = seeded(element.id);
     const material = new THREE.MeshStandardMaterial({
       color: palette[Math.abs(Number(element.id)) % palette.length],
       roughness: 0.88,
-      metalness: 0.02
+      metalness: 0.02,
+      emissive:
+        seed > 0.3
+          ? new THREE.Color(
+              seed > 0.82
+                ? 0xcfdcff
+                : 0xffc977
+            )
+          : new THREE.Color(0x000000),
+      emissiveIntensity: 0
     });
+
+    material.userData.nightWeight =
+      seed > 0.3
+        ? 0.18 + seed * 0.38
+        : 0;
+
+    nightMaterials.push(material);
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;
@@ -69,5 +88,6 @@ export function createBuildings(elements, heightAt) {
     group.add(mesh);
   }
 
+  group.userData.nightMaterials = nightMaterials;
   return group;
 }
