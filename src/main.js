@@ -39,7 +39,8 @@ const keys = new Set();
 createSky(scene);
 createLighting(scene);
 const clouds = createClouds(scene);
-createTerrain().group && scene.add(createTerrain().group);
+const terrain = createTerrain();
+scene.add(terrain.group);
 
 function updateCamera(delta) {
   const pan = new THREE.Vector3();
