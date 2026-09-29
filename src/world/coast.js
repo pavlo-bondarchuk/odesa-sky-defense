@@ -112,8 +112,12 @@ export function createCoast({
 
   const quayLights = new THREE.Group();
   const lightMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffd69a
+    color: 0xffd69a,
+    transparent: true,
+    opacity: 0
   });
+
+  const glowPositions = [];
 
   for (let i = 0; i < 22; i += 1) {
     const z = -250 + i * 24;
@@ -145,13 +149,88 @@ export function createCoast({
     );
 
     quayLights.add(post, lamp);
+
+    glowPositions.push(
+      x,
+      heightAt(x, z) + 3.5,
+      z
+    );
   }
 
   group.add(quayLights);
 
+  const glowGeometry = new THREE.BufferGeometry();
+  glowGeometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(
+      glowPositions,
+      3
+    )
+  );
+
+  const glowMaterial = new THREE.PointsMaterial({
+    color: 0xffd08a,
+    size: 2.2,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+
+  const portGlow = new THREE.Points(
+    glowGeometry,
+    glowMaterial
+  );
+
+  portGlow.renderOrder = 30;
+  group.add(portGlow);
+
+  const seaMaterial = sea.material;
+  const baseSeaColor = new THREE.Color(0x285d6a);
+  const nightSeaColor = new THREE.Color(0x102b38);
+
+  function updateNight(factor) {
+    const night = THREE.MathUtils.clamp(
+      factor,
+      0,
+      1
+    );
+
+    lightMaterial.opacity =
+      THREE.MathUtils.clamp(
+        (night - 0.08) / 0.76,
+        0,
+        1
+      );
+
+    glowMaterial.opacity =
+      THREE.MathUtils.clamp(
+        (night - 0.05) / 0.72,
+        0,
+        0.92
+      );
+
+    seaMaterial.color.copy(
+      baseSeaColor.clone().lerp(
+        nightSeaColor,
+        night * 0.72
+      )
+    );
+
+    seaMaterial.emissive = new THREE.Color(
+      0x102432
+    );
+
+    seaMaterial.emissiveIntensity =
+      night * 0.08;
+  }
+
   return {
     group,
     sea,
-    quayLights
+    quayLights,
+    portGlow,
+    updateNight
   };
 }
