@@ -130,14 +130,21 @@ function palette(time, weather, sun) {
       blueHour
     );
 
-    horizon = new THREE.Color(0xf28a55).lerp(
-      new THREE.Color(0x304763),
-      blueHour
+    const coolBlueHour =
+      THREE.MathUtils.smootherstep(
+        blueHour,
+        0.08,
+        0.72
+      );
+
+    horizon = new THREE.Color(0xe7835b).lerp(
+      new THREE.Color(0x263d58),
+      coolBlueHour
     );
 
-    low = new THREE.Color(0xffc67a).lerp(
-      new THREE.Color(0x3a4d66),
-      blueHour
+    low = new THREE.Color(0xeebc7b).lerp(
+      new THREE.Color(0x31465f),
+      coolBlueHour
     );
   } else {
     top = new THREE.Color(0x5c91c3);
