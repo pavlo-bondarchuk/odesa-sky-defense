@@ -9,7 +9,7 @@ export function createCoast({
   group.name = 'coast-port';
 
   const sea = new THREE.Mesh(
-    new THREE.PlaneGeometry(900, 1200, 1, 1),
+    new THREE.PlaneGeometry(1800, 3400, 1, 1),
     new THREE.MeshStandardMaterial({
       color: 0x285d6a,
       roughness: 0.28,
@@ -19,7 +19,7 @@ export function createCoast({
     })
   );
   sea.rotation.x = -Math.PI / 2;
-  sea.position.set(390, seaLevel, 0);
+  sea.position.set(720, seaLevel, 0);
   sea.receiveShadow = true;
   group.add(sea);
 
