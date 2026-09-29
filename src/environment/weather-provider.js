@@ -25,7 +25,7 @@ function buildUrl() {
     longitude: String(LONGITUDE),
     timezone: TIME_ZONE,
     current:
-      'temperature_2m,precipitation,rain,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,is_day',
+      'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,rain,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day',
     daily: 'sunrise,sunset',
     forecast_days: '1'
   });
@@ -54,6 +54,8 @@ export async function fetchOdesaWeather() {
       source: 'Open-Meteo',
       updatedAt: current.time || null,
       temperature: Number(current.temperature_2m ?? 18),
+      apparentTemperature: Number(current.apparent_temperature ?? current.temperature_2m ?? 18),
+      humidity: Number(current.relative_humidity_2m ?? 65),
       precipitation: Number(current.precipitation ?? 0),
       rain: Number(current.rain ?? 0),
       snowfall: Number(current.snowfall ?? 0),
@@ -62,6 +64,7 @@ export async function fetchOdesaWeather() {
       cloudCover: Number(current.cloud_cover ?? 20),
       windSpeed: Number(current.wind_speed_10m ?? 8),
       windDirection: Number(current.wind_direction_10m ?? 180),
+      windGusts: Number(current.wind_gusts_10m ?? current.wind_speed_10m ?? 8),
       isDay: Boolean(current.is_day),
       sunrise: data.daily?.sunrise?.[0] || null,
       sunset: data.daily?.sunset?.[0] || null
@@ -76,6 +79,8 @@ export function fallbackWeather() {
     source: 'fallback',
     updatedAt: null,
     temperature: 18,
+    apparentTemperature: 18,
+    humidity: 65,
     precipitation: 0,
     rain: 0,
     snowfall: 0,
@@ -84,6 +89,7 @@ export function fallbackWeather() {
     cloudCover: 18,
     windSpeed: 7,
     windDirection: 180,
+    windGusts: 10,
     isDay: true,
     sunrise: null,
     sunset: null
