@@ -4,6 +4,43 @@ const ENDPOINT =
 const LATITUDE = 46.4825;
 const LONGITUDE = 30.7233;
 const TIME_ZONE = 'Europe/Kyiv';
+const CACHE_KEY = 'odesa-sky-defense-weather-v1';
+const CACHE_MAX_AGE = 3 * 60 * 60 * 1000;
+
+function readWeatherCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+
+    const cached = JSON.parse(raw);
+    if (!cached?.savedAt || !cached?.weather) return null;
+
+    if (Date.now() - cached.savedAt > CACHE_MAX_AGE) {
+      return null;
+    }
+
+    return {
+      ...cached.weather,
+      source: 'cache'
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeWeatherCache(weather) {
+  try {
+    localStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify({
+        savedAt: Date.now(),
+        weather
+      })
+    );
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 function conditionFromCode(code) {
   if ([0].includes(code)) return 'clear';
@@ -50,7 +87,7 @@ export async function fetchOdesaWeather() {
     const data = await response.json();
     const current = data.current || {};
 
-    return {
+    const weather = {
       source: 'Open-Meteo',
       updatedAt: current.time || null,
       temperature: Number(current.temperature_2m ?? 18),
@@ -69,6 +106,17 @@ export async function fetchOdesaWeather() {
       sunrise: data.daily?.sunrise?.[0] || null,
       sunset: data.daily?.sunset?.[0] || null
     };
+
+    writeWeatherCache(weather);
+    return weather;
+  } catch (error) {
+    const cached = readWeatherCache();
+
+    if (cached) {
+      return cached;
+    }
+
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
