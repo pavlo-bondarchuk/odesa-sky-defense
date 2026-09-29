@@ -169,8 +169,8 @@ export function createCoast({
   );
 
   const glowMaterial = new THREE.PointsMaterial({
-    color: 0xffd08a,
-    size: 2.2,
+    color: 0xffc76b,
+    size: 2.8,
     sizeAttenuation: true,
     transparent: true,
     opacity: 0,
@@ -185,6 +185,24 @@ export function createCoast({
 
   portGlow.renderOrder = 30;
   group.add(portGlow);
+
+  const industrialGlowMaterial = new THREE.PointsMaterial({
+    color: 0xcfe7ff,
+    size: 5.2,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+
+  const industrialGlow = new THREE.Points(
+    glowGeometry.clone(),
+    industrialGlowMaterial
+  );
+
+  industrialGlow.renderOrder = 29;
+  group.add(industrialGlow);
 
   const seaMaterial = sea.material;
   const baseSeaColor = new THREE.Color(0x285d6a);
@@ -206,9 +224,16 @@ export function createCoast({
 
     glowMaterial.opacity =
       THREE.MathUtils.clamp(
-        (night - 0.05) / 0.72,
+        (night - 0.04) / 0.62,
         0,
-        0.92
+        1
+      );
+
+    industrialGlowMaterial.opacity =
+      THREE.MathUtils.clamp(
+        (night - 0.12) / 0.7,
+        0,
+        0.28
       );
 
     seaMaterial.color.copy(
@@ -231,6 +256,7 @@ export function createCoast({
     sea,
     quayLights,
     portGlow,
+    industrialGlow,
     updateNight
   };
 }
