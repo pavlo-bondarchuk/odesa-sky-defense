@@ -35,10 +35,17 @@ const camera = new THREE.PerspectiveCamera(44, 1, 1, 1100);
 const cameraState = {
   target: new THREE.Vector3(0, 0, 0),
   yaw: -0.65,
+  pitch: CONFIG.camera.pitch,
   distance: CONFIG.camera.startDistance
 };
 
 const keys = new Set();
+
+const pointerState = {
+  active: false,
+  x: 0,
+  y: 0
+};
 
 createSky(scene);
 createLighting(scene);
@@ -98,8 +105,11 @@ function updateCamera(delta) {
   if (keys.has('KeyQ')) cameraState.yaw += CONFIG.camera.rotationSpeed * delta;
   if (keys.has('KeyE')) cameraState.yaw -= CONFIG.camera.rotationSpeed * delta;
 
-  const horizontal = cameraState.distance * Math.cos(CONFIG.camera.pitch);
-  const height = cameraState.distance * Math.sin(CONFIG.camera.pitch);
+  const horizontal =
+    cameraState.distance * Math.cos(cameraState.pitch);
+
+  const height =
+    cameraState.distance * Math.sin(cameraState.pitch);
 
   camera.position.set(
     cameraState.target.x + Math.sin(cameraState.yaw) * horizontal,
@@ -129,13 +139,78 @@ window.addEventListener('keyup', (event) => {
   keys.delete(event.code);
 });
 
-window.addEventListener('wheel', (event) => {
-  cameraState.distance = THREE.MathUtils.clamp(
-    cameraState.distance + event.deltaY * 0.08,
-    CONFIG.camera.minDistance,
-    CONFIG.camera.maxDistance
+canvas.addEventListener('pointerdown', (event) => {
+  pointerState.active = true;
+  pointerState.x = event.clientX;
+  pointerState.y = event.clientY;
+  canvas.setPointerCapture(event.pointerId);
+});
+
+canvas.addEventListener('pointermove', (event) => {
+  if (!pointerState.active) return;
+
+  const dx = event.clientX - pointerState.x;
+  const dy = event.clientY - pointerState.y;
+
+  pointerState.x = event.clientX;
+  pointerState.y = event.clientY;
+
+  cameraState.yaw -= dx * 0.006;
+
+  cameraState.pitch = THREE.MathUtils.clamp(
+    cameraState.pitch + dy * 0.0045,
+    0.48,
+    1.28
   );
-}, { passive: true });
+});
+
+function endPointer(event) {
+  pointerState.active = false;
+
+  if (
+    canvas.hasPointerCapture &&
+    canvas.hasPointerCapture(event.pointerId)
+  ) {
+    canvas.releasePointerCapture(event.pointerId);
+  }
+}
+
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+
+window.addEventListener('wheel', (event) => {
+  event.preventDefault();
+
+  if (event.ctrlKey) {
+    cameraState.distance = THREE.MathUtils.clamp(
+      cameraState.distance + event.deltaY * 0.65,
+      CONFIG.camera.minDistance,
+      CONFIG.camera.maxDistance
+    );
+
+    return;
+  }
+
+  const scale =
+    cameraState.distance / CONFIG.camera.startDistance;
+
+  const panX = event.deltaX * 0.055 * scale;
+  const panZ = event.deltaY * 0.055 * scale;
+
+  const sin = Math.sin(cameraState.yaw);
+  const cos = Math.cos(cameraState.yaw);
+
+  cameraState.target.x +=
+    panX * cos - panZ * sin;
+
+  cameraState.target.z +=
+    panX * sin + panZ * cos;
+
+  cameraState.target.y = terrain.heightAt(
+    cameraState.target.x,
+    cameraState.target.z
+  );
+}, { passive: false });
 
 resize();
 
