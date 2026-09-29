@@ -104,8 +104,8 @@ export function createLighting(scene) {
 
     const targetHemiIntensity =
       THREE.MathUtils.lerp(
-        1.25 * (1 - cloudFactor * 0.3),
-        0.68,
+        1.18 * (1 - cloudFactor * 0.3),
+        0.58,
         nightFactor
       );
 
@@ -197,7 +197,7 @@ export function createLighting(scene) {
     cityAmbient.intensity =
       THREE.MathUtils.lerp(
         cityAmbient.intensity,
-        0.18 + nightFactor * 0.28,
+        0.12 + nightFactor * 0.2,
         blend
       );
   }
